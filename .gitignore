@@ -126,8 +126,7 @@ dist
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
 
-# pnpm
-.pnpm-store
+# (was pnpm) no longer used
 
 # yarn v3
 .pnp.*
@@ -185,7 +184,6 @@ node_modules/
 .vscode/tasks.json
 
 # npm, yarn and bun lock files
-package-lock.json
 yarn.lock
 bun.lockb
 
