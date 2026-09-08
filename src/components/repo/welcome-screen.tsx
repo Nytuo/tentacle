@@ -3,7 +3,7 @@ import { useGit } from "@/hooks/use-git";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { open } from "@tauri-apps/plugin-dialog";
-import { FolderOpen, Download, Plus } from "lucide-react";
+import { Download, FolderOpen, Plus } from "lucide-react";
 import * as api from "@/lib/api";
 
 export function WelcomeScreen() {
@@ -57,10 +57,13 @@ export function WelcomeScreen() {
   return (
     <div className="h-screen flex items-center justify-center bg-background">
       <div className="w-full max-w-md space-y-6 p-8">
-        
         <div className="text-center space-y-1">
           <div className="flex items-center justify-center mb-3">
-            <img src="/logo.png" alt="Tentacle" className="h-20 w-20 object-contain" />
+            <img
+              src="/logo.png"
+              alt="Tentacle"
+              className="h-20 w-20 object-contain"
+            />
           </div>
           <div className="mb-1">
             <h1 className="text-3xl font-bold tracking-tight">Tentacle</h1>
@@ -72,16 +75,28 @@ export function WelcomeScreen() {
 
         {view === "main" && (
           <div className="space-y-3">
-            <Button onClick={handleOpen} className="w-full h-11 gap-2" size="lg">
+            <Button
+              onClick={handleOpen}
+              className="w-full h-11 gap-2"
+              size="lg"
+            >
               <FolderOpen className="h-4 w-4" />
               Open Repository
             </Button>
             <div className="grid grid-cols-2 gap-3">
-              <Button variant="outline" className="gap-2" onClick={() => setView("clone")}>
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => setView("clone")}
+              >
                 <Download className="h-4 w-4" />
                 Clone
               </Button>
-              <Button variant="outline" className="gap-2" onClick={() => setView("init")}>
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => setView("init")}
+              >
                 <Plus className="h-4 w-4" />
                 Init New
               </Button>
@@ -104,12 +119,20 @@ export function WelcomeScreen() {
                 onChange={(e) => setClonePath(e.target.value)}
                 className="flex-1"
               />
-              <Button variant="outline" size="icon" onClick={handleSelectClonePath}>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleSelectClonePath}
+              >
                 <FolderOpen className="h-4 w-4" />
               </Button>
             </div>
             <div className="flex gap-2">
-              <Button variant="ghost" className="flex-1" onClick={() => setView("main")}>
+              <Button
+                variant="ghost"
+                className="flex-1"
+                onClick={() => setView("main")}
+              >
                 Cancel
               </Button>
               <Button
@@ -134,15 +157,27 @@ export function WelcomeScreen() {
                 className="flex-1"
                 autoFocus
               />
-              <Button variant="outline" size="icon" onClick={handleSelectInitPath}>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleSelectInitPath}
+              >
                 <FolderOpen className="h-4 w-4" />
               </Button>
             </div>
             <div className="flex gap-2">
-              <Button variant="ghost" className="flex-1" onClick={() => setView("main")}>
+              <Button
+                variant="ghost"
+                className="flex-1"
+                onClick={() => setView("main")}
+              >
                 Cancel
               </Button>
-              <Button onClick={handleInit} disabled={!initPath} className="flex-1 gap-2">
+              <Button
+                onClick={handleInit}
+                disabled={!initPath}
+                className="flex-1 gap-2"
+              >
                 <Plus className="h-4 w-4" />
                 Initialize
               </Button>

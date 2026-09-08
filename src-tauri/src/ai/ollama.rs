@@ -13,6 +13,8 @@ struct OllamaRequest {
 #[derive(Debug, Deserialize)]
 struct OllamaResponse {
     response: String,
+
+    #[allow(dead_code)]
     done: bool,
 }
 
@@ -59,7 +61,10 @@ pub async fn ai_list_models() -> Result<Vec<OllamaModel>, String> {
 }
 
 #[tauri::command]
-pub async fn ai_generate_commit_message(diff: String, model: Option<String>) -> Result<String, String> {
+pub async fn ai_generate_commit_message(
+    diff: String,
+    model: Option<String>,
+) -> Result<String, String> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(60))
         .build()
@@ -90,7 +95,11 @@ pub async fn ai_generate_commit_message(diff: String, model: Option<String>) -> 
 }
 
 #[tauri::command]
-pub async fn ai_generate_pr_description(diff: String, title: String, model: Option<String>) -> Result<String, String> {
+pub async fn ai_generate_pr_description(
+    diff: String,
+    title: String,
+    model: Option<String>,
+) -> Result<String, String> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(120))
         .build()

@@ -1,7 +1,9 @@
-mod git;
-mod remote;
-mod ai;
+pub mod ai;
+pub mod git;
+pub mod remote;
+pub mod secrets;
 
+use git::watcher::WatcherState;
 use git::GitState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -13,70 +15,101 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .manage(GitState::new())
+        .manage(WatcherState::new())
         .invoke_handler(tauri::generate_handler![
-            
             git::repo::open_repo,
             git::repo::init_repo,
             git::repo::clone_repo,
             git::repo::get_repo_info,
+            git::repo::close_repo,
             git::repo::get_file_tree,
             git::repo::get_file_content,
-            
+            git::repo::get_file_at_commit,
             git::commits::get_commits,
             git::commits::get_commit_details,
+            git::commits::get_file_history,
             git::commits::create_commit,
             git::commits::amend_commit,
-            
+            git::commits::get_head_message,
             git::branches::get_branches,
             git::branches::create_branch,
             git::branches::delete_branch,
             git::branches::rename_branch,
             git::branches::checkout_branch,
             git::branches::checkout_commit,
+            git::branches::set_upstream,
             git::branches::merge_branch,
             git::branches::check_merge_status,
-            
+            git::branches::get_default_branch,
             git::diff::get_working_diff,
             git::diff::get_staged_diff,
             git::diff::get_commit_diff,
+            git::diff::get_range_diff,
             git::diff::get_conflict_files,
             git::diff::get_conflict_diff,
             git::diff::resolve_conflict_file,
             git::diff::resolve_conflict_with_side,
-            
+            git::diff::resolve_conflict_hunks,
             git::staging::get_status,
             git::staging::stage_file,
+            git::staging::stage_files,
             git::staging::unstage_file,
+            git::staging::unstage_files,
             git::staging::stage_all,
             git::staging::unstage_all,
             git::staging::discard_file,
             git::staging::discard_all,
-            
+            git::hunks::stage_hunks,
+            git::hunks::unstage_hunks,
+            git::hunks::discard_hunks,
             git::stash::get_stashes,
             git::stash::create_stash,
             git::stash::apply_stash,
             git::stash::drop_stash,
-            
+            git::stash::stash_to_branch,
             git::tags::get_tags,
             git::tags::create_tag,
             git::tags::delete_tag,
-            
             git::graph::get_commit_graph,
-            
             git::advanced::rebase_onto,
+            git::advanced::rebase_interactive,
             git::advanced::abort_rebase,
             git::advanced::continue_rebase,
             git::advanced::cherry_pick,
             git::advanced::revert_commit,
             git::advanced::reset_to_commit,
-            
+            git::advanced::abort_operation,
             git::advanced::fetch_remote,
+            git::advanced::fetch_all,
             git::advanced::push_remote,
+            git::advanced::push_tag,
+            git::advanced::delete_remote_branch,
             git::advanced::pull_remote,
             git::advanced::get_remotes,
             git::advanced::add_remote,
             git::advanced::remove_remote,
-            
+            git::advanced::rename_remote,
+            git::advanced::set_remote_url,
+            git::blame::get_blame,
+            git::reflog::get_reflog,
+            git::reflog::restore_from_reflog,
+            git::ignore::read_ignore_file,
+            git::ignore::write_ignore_file,
+            git::ignore::add_ignore_pattern,
+            git::ignore::is_ignored,
+            git::submodules::get_submodules,
+            git::submodules::update_submodules,
+            git::submodules::add_submodule,
+            git::submodules::get_worktrees,
+            git::submodules::add_worktree,
+            git::submodules::remove_worktree,
+            git::submodules::get_lfs_status,
+            git::watcher::watch_repo,
+            git::watcher::unwatch_repo,
+            secrets::secret_set,
+            secrets::secret_get,
+            secrets::secret_delete,
+            secrets::secret_has,
             remote::github::github_get_repo,
             remote::github::github_list_prs,
             remote::github::github_create_pr,
@@ -84,18 +117,15 @@ pub fn run() {
             remote::github::github_close_pr,
             remote::github::github_list_issues,
             remote::github::github_list_repos,
-            
             remote::gitlab::gitlab_get_repo,
             remote::gitlab::gitlab_list_mrs,
             remote::gitlab::gitlab_create_mr,
             remote::gitlab::gitlab_merge_mr,
             remote::gitlab::gitlab_list_issues,
-            
             remote::bitbucket::bitbucket_get_repo,
             remote::bitbucket::bitbucket_list_prs,
             remote::bitbucket::bitbucket_create_pr,
             remote::bitbucket::bitbucket_merge_pr,
-            
             ai::ollama::ai_check_ollama,
             ai::ollama::ai_list_models,
             ai::ollama::ai_generate_commit_message,

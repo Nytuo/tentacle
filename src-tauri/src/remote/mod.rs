@@ -1,6 +1,6 @@
+pub mod bitbucket;
 pub mod github;
 pub mod gitlab;
-pub mod bitbucket;
 
 use serde::{Deserialize, Serialize};
 

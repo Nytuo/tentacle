@@ -15,28 +15,46 @@ export function DiffViewer({ files }: { files: DiffFile[] }) {
   return (
     <div className="divide-y">
       {files.map((file, idx) => (
-        <DiffFileSection key={idx} file={file} defaultExpanded={files.length <= 3} />
+        <DiffFileSection
+          key={idx}
+          file={file}
+          defaultExpanded={files.length <= 3}
+        />
       ))}
     </div>
   );
 }
 
-function DiffFileSection({ file, defaultExpanded = true }: { file: DiffFile; defaultExpanded?: boolean }) {
+function DiffFileSection({
+  file,
+  defaultExpanded = true,
+}: {
+  file: DiffFile;
+  defaultExpanded?: boolean;
+}) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const path = file.new_path || file.old_path || "unknown";
   const fileName = path.split("/").pop() || path;
-  const dir = path.includes("/") ? path.substring(0, path.lastIndexOf("/") + 1) : "";
+  const dir = path.includes("/")
+    ? path.substring(0, path.lastIndexOf("/") + 1)
+    : "";
   const color = statusColor(file.status);
 
   return (
     <div>
-      
       <button
         className="w-full flex items-center gap-2 px-4 py-2 text-xs hover:bg-accent/30 transition-colors cursor-pointer sticky top-0 bg-background z-10 border-b"
         onClick={() => setExpanded(!expanded)}
       >
-        {expanded ? <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />}
-        <span className="font-bold w-4 text-center shrink-0 text-[10px]" style={{ color }}>
+        {expanded ? (
+          <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+        )}
+        <span
+          className="font-bold w-4 text-center shrink-0 text-[10px]"
+          style={{ color }}
+        >
           {statusIcon(file.status)}
         </span>
         <File className="h-3 w-3 shrink-0 text-muted-foreground" />
@@ -53,7 +71,6 @@ function DiffFileSection({ file, defaultExpanded = true }: { file: DiffFile; def
         )}
       </button>
 
-      
       {expanded && !file.binary && (
         <div className="bg-muted/20">
           {file.hunks.map((hunk, hi) => (
@@ -69,7 +86,7 @@ function DiffFileSection({ file, defaultExpanded = true }: { file: DiffFile; def
                       "flex px-2 min-h-[18px] border-l-2",
                       line.origin === "+" && "bg-added/8 border-l-added",
                       line.origin === "-" && "bg-deleted/8 border-l-deleted",
-                      line.origin === " " && "border-l-transparent"
+                      line.origin === " " && "border-l-transparent",
                     )}
                   >
                     <span className="w-10 text-right pr-2 text-muted-foreground/60 select-none shrink-0 text-[10px] tabular-nums">
@@ -83,7 +100,7 @@ function DiffFileSection({ file, defaultExpanded = true }: { file: DiffFile; def
                         "w-4 text-center shrink-0 select-none font-medium",
                         line.origin === "+" && "text-added",
                         line.origin === "-" && "text-deleted",
-                        line.origin === " " && "text-transparent"
+                        line.origin === " " && "text-transparent",
                       )}
                     >
                       {line.origin}

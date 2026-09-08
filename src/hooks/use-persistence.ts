@@ -6,31 +6,22 @@ import * as api from "@/lib/api";
 
 const STORE_FILE = "tentacle-state.json";
 
-/** Data shape persisted to disk */
 interface PersistedState {
-  /** Repo paths in tab order */
   tabPaths: string[];
-  /** Path of the active tab */
   activeTabPath: string | null;
-  /** Theme */
   theme: "light" | "dark";
-  /** Provider settings */
   providerType: AppState["providerType"];
-  providerToken: string;
   providerOwner: string;
   providerRepo: string;
   gitlabBaseUrl: string;
+
+  allowNetwork: boolean;
 }
 
-/**
- * Persists opened tabs, active tab, theme, and provider settings
- * to disk via tauri-plugin-store. Restores on first mount.
- */
 export function usePersistence() {
   const { state, dispatch } = useApp();
   const restored = useRef(false);
 
-  
   useEffect(() => {
     if (restored.current) return;
     restored.current = true;
@@ -39,120 +30,132 @@ export function usePersistence() {
       try {
         const store = await load(STORE_FILE);
         const data = await store.get<PersistedState>("state");
-        console.log("[persistence] loaded data:", JSON.stringify(data));
-        if (!data) {
-          console.log("[persistence] no data, starting fresh");
-          dispatch({ type: "SET_RESTORED" });
-          return;
-        }
+        if (!data) return;
 
-        
         if (data.theme) {
           dispatch({ type: "SET_THEME_SILENT", payload: data.theme });
         }
 
-        
-        if (data.providerType !== undefined) {
-          dispatch({
-            type: "SET_PROVIDER_SETTINGS",
-            payload: {
-              providerType: data.providerType,
-              providerToken: data.providerToken ?? "",
-              providerOwner: data.providerOwner ?? "",
-              providerRepo: data.providerRepo ?? "",
-              gitlabBaseUrl: data.gitlabBaseUrl ?? "https://gitlab.com",
-            },
-          });
+        dispatch({
+          type: "SET_PROVIDER_SETTINGS",
+          payload: {
+            providerType: data.providerType ?? null,
+            providerOwner: data.providerOwner ?? "",
+            providerRepo: data.providerRepo ?? "",
+            gitlabBaseUrl: data.gitlabBaseUrl ?? "https://gitlab.com",
+            allowNetwork: data.allowNetwork ?? false,
+          },
+        });
+
+        if (data.providerType) {
+          const saved = await api
+            .secretHas(api.providerTokenKey(data.providerType))
+            .catch(() => false);
+          dispatch({ type: "SET_PROVIDER_TOKEN_SAVED", payload: saved });
         }
 
-        
-        
-        
-        
-        if (data.tabPaths && data.tabPaths.length > 0) {
-          for (const path of data.tabPaths) {
-            try {
-              console.log("[persistence] opening repo:", path);
-              const repo = await api.openRepo(path);
-              
-              dispatch({ type: "ADD_TAB", payload: repo });
-              const tabId = repo.path;
+        for (const path of data.tabPaths ?? []) {
+          try {
+            const repo = await api.openRepo(path);
+            dispatch({ type: "ADD_TAB", payload: repo });
 
-              
-              const [branches, status, graph, stashes, tags, remotes] = await Promise.all([
+            api.setActiveRepo(repo.path);
+            const [branches, status, graph, stashes, tags, remotes] =
+              await Promise.all([
                 api.getBranches().catch(() => []),
                 api.getStatus().catch(() => null),
-                api.getCommitGraph(500).catch(() => null),
+                api.getCommitGraph({ max_count: 500 }).catch(() => null),
                 api.getStashes().catch(() => []),
                 api.getTags().catch(() => []),
                 api.getRemotes().catch(() => []),
               ]);
-              const [workingDiff, stagedDiff] = await Promise.all([
-                api.getWorkingDiff().catch(() => []),
-                api.getStagedDiff().catch(() => []),
-              ]);
+            const [workingDiff, stagedDiff] = await Promise.all([
+              api.getWorkingDiff().catch(() => []),
+              api.getStagedDiff().catch(() => []),
+            ]);
 
-              
-              dispatch({
-                type: "UPDATE_TAB",
-                tabId,
-                update: { branches, status, graph, stashes, tags, remotes, workingDiff, stagedDiff },
-              });
-            } catch {
-              
-            }
-          }
+            dispatch({
+              type: "UPDATE_TAB",
+              tabId: repo.path,
+              update: {
+                branches,
+                status,
+                graph,
+                stashes,
+                tags,
+                remotes,
+                workingDiff,
+                stagedDiff,
+              },
+            });
+          } catch {}
+        }
 
-          
-          
-          
-          if (data.activeTabPath) {
-            dispatch({ type: "SET_ACTIVE_TAB", payload: data.activeTabPath });
-          }
+        if (data.activeTabPath) {
+          dispatch({ type: "SET_ACTIVE_TAB", payload: data.activeTabPath });
         }
       } catch {
-        
       } finally {
         dispatch({ type: "SET_RESTORED" });
       }
     })();
-    
-  }, []);
+  }, [dispatch]);
 
-  
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    
     if (!state.isRestored) return;
 
     const data: PersistedState = {
-      tabPaths: state.tabs.map(t => t.id),
+      tabPaths: state.tabs.map((t) => t.id),
       activeTabPath: state.activeTabId,
       theme: state.theme,
       providerType: state.providerType,
-      providerToken: state.providerToken,
       providerOwner: state.providerOwner,
       providerRepo: state.providerRepo,
       gitlabBaseUrl: state.gitlabBaseUrl,
+      allowNetwork: state.allowNetwork,
     };
 
-    
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       try {
         const store = await load(STORE_FILE);
         await store.set("state", data);
         await store.save();
-        console.log("[persistence] saved:", JSON.stringify(data));
-      } catch (e) {
-        console.error("[persistence] save error:", e);
-      }
+      } catch {}
     }, 800);
   }, [
     state.isRestored,
-    state.tabs, state.activeTabId, state.theme,
-    state.providerType, state.providerToken, state.providerOwner,
-    state.providerRepo, state.gitlabBaseUrl,
+    state.tabs,
+    state.activeTabId,
+    state.theme,
+    state.providerType,
+    state.providerOwner,
+    state.providerRepo,
+    state.gitlabBaseUrl,
+    state.allowNetwork,
   ]);
+}
+
+export async function readStoredState(): Promise<PersistedState | null> {
+  try {
+    const store = await load(STORE_FILE);
+    return (await store.get<PersistedState>("state")) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function purgeStoredState(providers: string[]): Promise<void> {
+  try {
+    const store = await load(STORE_FILE);
+    await store.clear();
+    await store.save();
+  } catch {}
+  await Promise.all(
+    providers.map((p) =>
+      api.secretDelete(api.providerTokenKey(p)).catch(() => undefined),
+    ),
+  );
 }

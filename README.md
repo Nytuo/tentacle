@@ -1,4 +1,3 @@
-
 <h1 align="center">
 	<img src="public/logo.png" alt="Tentacle Logo" width="200">
 </h1>
@@ -24,34 +23,72 @@ A privacy-first, modern Git client inspired by GitKraken.
 </div>
 
 > [!WARNING]
-> Tentacle is still in development, and not an active one for the moment. So, it may contain bugs and cause git issues. Use at your own risk.
+> Tentacle is still in development, and not an active one for the moment. So, it
+> may contain bugs and cause git issues. Use at your own risk.
 
 ## About
 
-Tentacle is a privacy-first Git client, aiming to provide a modern, beautiful, and powerful interface for managing your repositories. Inspired by GitKraken, Tentacle is built with Tauri, React, and Rust, and puts your data privacy first, no analytics, no tracking, no cloud sync. All your work stays on your machine, in the depths where Cthulhu dwells.
+Tentacle is a privacy-first Git client, aiming to provide a modern, beautiful,
+and powerful interface for managing your repositories. Inspired by GitKraken,
+Tentacle is built with Tauri, React, and Rust, and puts your data privacy first,
+no analytics, no tracking, no cloud sync. All your work stays on your machine,
+in the depths where Cthulhu dwells.
 
 ## What Tentacle Can Do
 
 - **Visualize your repositories:**
-	- Interactive commit graph, branch management, and tag navigation
-	- View diffs, stashes, remotes, and more
+  - Interactive commit graph across every branch, with search by message,
+    author, hash or path
+  - Branch management, tags, stashes, remotes and the reflog
 
-- **Commit, merge, and resolve conflicts** with an intuitive UI
+- **Stage at any granularity** — whole files, single hunks, or individual lines
 
-- **Stage, unstage, and discard changes** with drag-and-drop ease
+- **Rewrite history** — amend, cherry-pick, revert, reset, and interactive
+  rebase with squash, fixup, reword, reorder and drop
 
-- **Multi-repository support** — manage all your tentacles at once
+- **Understand a file** — per-file history that follows renames, and
+  line-by-line blame
+
+- **Commit, merge, and resolve conflicts**, region by region
+
+- **Worktrees, submodules and Git LFS** detection
+
+- **Multi-repository support** — every tab is its own repository, isolated end
+  to end
 
 - **Privacy-first:**
-	- No data leaves your device
-	- No telemetry, no tracking, no ads
+  - No telemetry, no tracking, no ads, no cloud sync
+  - Tokens live in your OS keychain, never in a settings file
+  - Outbound provider requests are off until you turn them on
+  - Settings are one JSON file you can inspect or erase from inside the app
 
-- **Keyboard shortcuts** for power users
+- **Keyboard shortcuts** and a ⌘K command palette
 
 - **Cross-platform:**
-	- macOS, Windows, Linux
+  - macOS, Windows, Linux
+
+## Development
+
+```bash
+npm install
+npm run tauri dev
+```
+
+Checks, all of which run in CI:
+
+```bash
+npm run typecheck && npm test && npm run build
+cd src-tauri && cargo test && cargo clippy --all-targets -- -D warnings
+```
+
+## Authentication
+
+Fetch, push and clone resolve credentials in order: your SSH agent, then SSH
+keys in `~/.ssh`, then a token saved for that host in your OS keychain, then
+your configured `credential.helper`.
 
 ## Technologies
+
 <div style="display: flex; align-items: center; gap: 10px;">
 		<img src="https://img.shields.io/badge/Rust-black?style=for-the-badge&logo=rust"/>
 	<img src="https://img.shields.io/badge/NPM-black?style=for-the-badge&logo=npm"/>
@@ -66,16 +103,21 @@ Tentacle is a privacy-first Git client, aiming to provide a modern, beautiful, a
 
 ### Launching on MacOS
 
-If you have trouble launching Tentacle on macOS, ensure you have the latest version of [Tauri](https://tauri.app/) and [Rust](https://www.rust-lang.org/tools/install) installed. You may need to allow the app in your Security & Privacy settings.
+If you have trouble launching Tentacle on macOS, ensure you have the latest
+version of [Tauri](https://tauri.app/) and
+[Rust](https://www.rust-lang.org/tools/install) installed. You may need to allow
+the app in your Security & Privacy settings.
 
 ## Authors & contributors
 
-The original author of this repository is [Arnaud BEUX](https://github.com/Nytuo).
+The original author of this repository is
+[Arnaud BEUX](https://github.com/Nytuo).
 
-For a full list of all authors and contributors, see [the contributors page](https://github.com/Nytuo/tentacle/contributors).
+For a full list of all authors and contributors, see
+[the contributors page](https://github.com/Nytuo/tentacle/contributors).
 
 ## License
 
-Tentacle is licensed under the **GNU General Public License v3**.
-Tentacle is provided **"as is"** without any **warranty**. Use at your own risk.
-See [LICENSE](LICENSE) for more information.
+Tentacle is licensed under the **GNU General Public License v3**. Tentacle is
+provided **"as is"** without any **warranty**. Use at your own risk. See
+[LICENSE](LICENSE) for more information.

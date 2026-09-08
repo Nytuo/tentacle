@@ -4,43 +4,43 @@
 
 /* ── shadcn/ui stock theme (zinc neutral palette) ──────────────────── */
 @theme {
-  --color-background:           oklch(1 0 0);
-  --color-foreground:           oklch(0.141 0.005 285.823);
-  --color-card:                 oklch(1 0 0);
-  --color-card-foreground:      oklch(0.141 0.005 285.823);
-  --color-popover:              oklch(1 0 0);
-  --color-popover-foreground:   oklch(0.141 0.005 285.823);
-  --color-primary:              oklch(0.21 0.006 285.885);
-  --color-primary-foreground:   oklch(0.985 0 0);
-  --color-secondary:            oklch(0.967 0.001 286.375);
+  --color-background: oklch(1 0 0);
+  --color-foreground: oklch(0.141 0.005 285.823);
+  --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.141 0.005 285.823);
+  --color-popover: oklch(1 0 0);
+  --color-popover-foreground: oklch(0.141 0.005 285.823);
+  --color-primary: oklch(0.21 0.006 285.885);
+  --color-primary-foreground: oklch(0.985 0 0);
+  --color-secondary: oklch(0.967 0.001 286.375);
   --color-secondary-foreground: oklch(0.21 0.006 285.885);
-  --color-muted:                oklch(0.967 0.001 286.375);
-  --color-muted-foreground:     oklch(0.552 0.016 285.938);
-  --color-accent:               oklch(0.967 0.001 286.375);
-  --color-accent-foreground:    oklch(0.21 0.006 285.885);
-  --color-destructive:          oklch(0.577 0.245 27.325);
+  --color-muted: oklch(0.967 0.001 286.375);
+  --color-muted-foreground: oklch(0.552 0.016 285.938);
+  --color-accent: oklch(0.967 0.001 286.375);
+  --color-accent-foreground: oklch(0.21 0.006 285.885);
+  --color-destructive: oklch(0.577 0.245 27.325);
   --color-destructive-foreground: oklch(0.985 0 0);
-  --color-border:               oklch(0.92 0.004 286.32);
-  --color-input:                oklch(0.92 0.004 286.32);
-  --color-ring:                 oklch(0.141 0.005 285.823);
+  --color-border: oklch(0.92 0.004 286.32);
+  --color-input: oklch(0.92 0.004 286.32);
+  --color-ring: oklch(0.141 0.005 285.823);
 
   /* Git status colors */
-  --color-added:                oklch(0.527 0.154 150.069);
-  --color-deleted:              oklch(0.577 0.245 27.325);
-  --color-modified:             oklch(0.666 0.179 58.318);
-  --color-renamed:              oklch(0.558 0.288 302.321);
-  --color-untracked:            oklch(0.546 0.245 262.881);
-  --color-conflicted:           oklch(0.577 0.245 27.325);
+  --color-added: oklch(0.527 0.154 150.069);
+  --color-deleted: oklch(0.577 0.245 27.325);
+  --color-modified: oklch(0.666 0.179 58.318);
+  --color-renamed: oklch(0.558 0.288 302.321);
+  --color-untracked: oklch(0.546 0.245 262.881);
+  --color-conflicted: oklch(0.577 0.245 27.325);
 
   /* Commit graph lane colors */
-  --color-lane-0:               oklch(0.696 0.17 162.48);
-  --color-lane-1:               oklch(0.585 0.233 277.117);
-  --color-lane-2:               oklch(0.769 0.188 70.08);
-  --color-lane-3:               oklch(0.702 0.192 22.216);
-  --color-lane-4:               oklch(0.648 0.2 131.684);
-  --color-lane-5:               oklch(0.623 0.214 259.815);
-  --color-lane-6:               oklch(0.627 0.265 303.9);
-  --color-lane-7:               oklch(0.795 0.184 86.047);
+  --color-lane-0: oklch(0.696 0.17 162.48);
+  --color-lane-1: oklch(0.585 0.233 277.117);
+  --color-lane-2: oklch(0.769 0.188 70.08);
+  --color-lane-3: oklch(0.702 0.192 22.216);
+  --color-lane-4: oklch(0.648 0.2 131.684);
+  --color-lane-5: oklch(0.623 0.214 259.815);
+  --color-lane-6: oklch(0.627 0.265 303.9);
+  --color-lane-7: oklch(0.795 0.184 86.047);
 
   --radius: 0.625rem;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
@@ -49,33 +49,33 @@
 
 /* ── Dark mode ──────────────────────────────────────────────────────── */
 .dark {
-  --color-background:           oklch(0.141 0.005 285.823);
-  --color-foreground:           oklch(0.985 0 0);
-  --color-card:                 oklch(0.21 0.006 285.885);
-  --color-card-foreground:      oklch(0.985 0 0);
-  --color-popover:              oklch(0.21 0.006 285.885);
-  --color-popover-foreground:   oklch(0.985 0 0);
-  --color-primary:              oklch(0.985 0 0);
-  --color-primary-foreground:   oklch(0.21 0.006 285.885);
-  --color-secondary:            oklch(0.274 0.006 286.033);
+  --color-background: oklch(0.141 0.005 285.823);
+  --color-foreground: oklch(0.985 0 0);
+  --color-card: oklch(0.21 0.006 285.885);
+  --color-card-foreground: oklch(0.985 0 0);
+  --color-popover: oklch(0.21 0.006 285.885);
+  --color-popover-foreground: oklch(0.985 0 0);
+  --color-primary: oklch(0.985 0 0);
+  --color-primary-foreground: oklch(0.21 0.006 285.885);
+  --color-secondary: oklch(0.274 0.006 286.033);
   --color-secondary-foreground: oklch(0.985 0 0);
-  --color-muted:                oklch(0.274 0.006 286.033);
-  --color-muted-foreground:     oklch(0.705 0.015 286.067);
-  --color-accent:               oklch(0.274 0.006 286.033);
-  --color-accent-foreground:    oklch(0.985 0 0);
-  --color-destructive:          oklch(0.704 0.191 22.216);
+  --color-muted: oklch(0.274 0.006 286.033);
+  --color-muted-foreground: oklch(0.705 0.015 286.067);
+  --color-accent: oklch(0.274 0.006 286.033);
+  --color-accent-foreground: oklch(0.985 0 0);
+  --color-destructive: oklch(0.704 0.191 22.216);
   --color-destructive-foreground: oklch(0.985 0 0);
-  --color-border:               oklch(1 0 0 / 10%);
-  --color-input:                oklch(1 0 0 / 15%);
-  --color-ring:                 oklch(0.552 0.016 285.938);
+  --color-border: oklch(1 0 0 / 10%);
+  --color-input: oklch(1 0 0 / 15%);
+  --color-ring: oklch(0.552 0.016 285.938);
 
   /* Git status colors — vivid enough on dark bg */
-  --color-added:                oklch(0.723 0.219 149.579);
-  --color-deleted:              oklch(0.704 0.191 22.216);
-  --color-modified:             oklch(0.828 0.189 84.429);
-  --color-renamed:              oklch(0.714 0.203 305.504);
-  --color-untracked:            oklch(0.707 0.165 254.624);
-  --color-conflicted:           oklch(0.704 0.191 22.216);
+  --color-added: oklch(0.723 0.219 149.579);
+  --color-deleted: oklch(0.704 0.191 22.216);
+  --color-modified: oklch(0.828 0.189 84.429);
+  --color-renamed: oklch(0.714 0.203 305.504);
+  --color-untracked: oklch(0.707 0.165 254.624);
+  --color-conflicted: oklch(0.704 0.191 22.216);
 }
 
 /* ── Global resets ──────────────────────────────────────────────────── */
@@ -104,9 +104,14 @@ body {
 }
 
 /* ── Scrollbars — thin, subtle ──────────────────────────────────────── */
-::-webkit-scrollbar        { width: 6px; height: 6px; }
-::-webkit-scrollbar-track  { background: transparent; }
-::-webkit-scrollbar-thumb  {
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
   background: var(--color-border);
   border-radius: 3px;
 }

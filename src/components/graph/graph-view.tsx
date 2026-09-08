@@ -1,23 +1,82 @@
-import { useCallback, useRef, useLayoutEffect, useState, useMemo, useEffect } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useGit } from "@/hooks/use-git";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import {
-  ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem,
-  ContextMenuSeparator, ContextMenuLabel, ContextMenuSub,
-  ContextMenuSubTrigger, ContextMenuSubContent,
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+  ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { laneColor, formatTimestamp, formatFullDate, statusIcon, statusColor, cn } from "@/lib/utils";
 import {
-  File, User, Clock, GitCommit, Hash, X, Copy, GitBranch,
-  ChevronsUp, RotateCcw, Undo2, Cherry, Tag,
-  FolderOpen, FolderClosed, List, FolderTree,
+  cn,
+  formatFullDate,
+  formatTimestamp,
+  laneColor,
+  statusColor,
+  statusIcon,
+} from "@/lib/utils";
+import {
+  Check,
+  Cherry,
+  ChevronsUp,
+  CircleSlash,
+  Clock,
+  Cloud,
+  Combine,
+  Copy,
+  File,
+  FileClock,
+  FolderClosed,
+  FolderOpen,
+  FolderTree,
+  GitBranch,
+  GitCommit,
+  Hash,
+  Layers,
+  List,
+  ListOrdered,
+  RotateCcw,
+  ScanLine,
+  Search,
+  ShieldCheck,
+  Tag,
+  Undo2,
+  User,
+  X,
 } from "lucide-react";
-import type { GraphNode, DiffFile } from "@/lib/api";
+import type { DiffFile, GraphNode, RefInfo } from "@/lib/api";
+import { buildSquashPlan } from "@/components/graph/squash-plan";
 import { Button } from "@/components/ui/button";
-
-
+import { Input } from "@/components/ui/input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  chooseFrom,
+  confirmThat,
+  promptFor,
+} from "@/components/ui/prompt-dialog";
+import { InteractiveRebaseDialog } from "@/components/graph/interactive-rebase";
 
 interface DiffTreeNode {
   name: string;
@@ -37,9 +96,15 @@ function buildDiffTree(files: DiffFile[]): DiffTreeNode[] {
       const name = parts[i];
       const isLast = i === parts.length - 1;
       const segPath = parts.slice(0, i + 1).join("/");
-      let node = current.find(n => n.name === name && n.isDir === !isLast);
+      let node = current.find((n) => n.name === name && n.isDir === !isLast);
       if (!node) {
-        node = { name, path: segPath, isDir: !isLast, children: [], file: isLast ? file : undefined };
+        node = {
+          name,
+          path: segPath,
+          isDir: !isLast,
+          children: [],
+          file: isLast ? file : undefined,
+        };
         current.push(node);
       }
       current = node.children;
@@ -50,13 +115,19 @@ function buildDiffTree(files: DiffFile[]): DiffTreeNode[] {
       if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
       return a.name.localeCompare(b.name);
     });
-    nodes.forEach(n => { if (n.isDir) sort(n.children); });
+    nodes.forEach((n) => {
+      if (n.isDir) sort(n.children);
+    });
   };
   sort(root);
   return root;
 }
 
-function DiffDirNode({ node, depth, onFileClick }: {
+function DiffDirNode({
+  node,
+  depth,
+  onFileClick,
+}: {
   node: DiffTreeNode;
   depth: number;
   onFileClick: (f: DiffFile) => void;
@@ -64,7 +135,10 @@ function DiffDirNode({ node, depth, onFileClick }: {
   const [open, setOpen] = useState(true);
   const count = useMemo(() => {
     let n = 0;
-    const walk = (x: DiffTreeNode) => { if (!x.isDir) n++; else x.children.forEach(walk); };
+    const walk = (x: DiffTreeNode) => {
+      if (!x.isDir) n++;
+      else x.children.forEach(walk);
+    };
     walk(node);
     return n;
   }, [node]);
@@ -74,38 +148,70 @@ function DiffDirNode({ node, depth, onFileClick }: {
       <div
         className="flex items-center gap-1.5 px-3 h-7 hover:bg-accent/60 cursor-pointer transition-colors select-none"
         style={{ paddingLeft: `${12 + depth * 16}px` }}
-        onClick={() => setOpen(o => !o)}
+        onClick={() => setOpen((o) => !o)}
       >
-        {open
-          ? <FolderOpen className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          : <FolderClosed className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+        {open ? (
+          <FolderOpen className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        ) : (
+          <FolderClosed className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        )}
         <span className="truncate flex-1 font-mono text-xs font-medium text-muted-foreground">
           {node.name}
         </span>
-        <span className="text-[10px] tabular-nums text-muted-foreground/60">{count}</span>
+        <span className="text-[10px] tabular-nums text-muted-foreground/60">
+          {count}
+        </span>
       </div>
-      {open && <DiffTreeNodes nodes={node.children} depth={depth + 1} onFileClick={onFileClick} />}
+      {open && (
+        <DiffTreeNodes
+          nodes={node.children}
+          depth={depth + 1}
+          onFileClick={onFileClick}
+        />
+      )}
     </>
   );
 }
 
-function DiffTreeNodes({ nodes, depth, onFileClick }: {
+function DiffTreeNodes({
+  nodes,
+  depth,
+  onFileClick,
+}: {
   nodes: DiffTreeNode[];
   depth: number;
   onFileClick: (f: DiffFile) => void;
 }) {
   return (
     <>
-      {nodes.map(node =>
-        node.isDir
-          ? <DiffDirNode key={node.path} node={node} depth={depth} onFileClick={onFileClick} />
-          : <DiffFileRow key={node.path} file={node.file!} label={node.name} indent={depth} onFileClick={onFileClick} />
+      {nodes.map((node) =>
+        node.isDir ? (
+          <DiffDirNode
+            key={node.path}
+            node={node}
+            depth={depth}
+            onFileClick={onFileClick}
+          />
+        ) : (
+          <DiffFileRow
+            key={node.path}
+            file={node.file!}
+            label={node.name}
+            indent={depth}
+            onFileClick={onFileClick}
+          />
+        ),
       )}
     </>
   );
 }
 
-function DiffFileRow({ file, label, indent = 0, onFileClick }: {
+function DiffFileRow({
+  file,
+  label,
+  indent = 0,
+  onFileClick,
+}: {
   file: DiffFile;
   label: string;
   indent?: number;
@@ -127,8 +233,7 @@ function DiffFileRow({ file, label, indent = 0, onFileClick }: {
       <span className="truncate flex-1 font-mono">{label}</span>
       {!file.binary && (
         <span className="shrink-0 tabular-nums">
-          <span className="text-green-500">+{file.additions}</span>
-          {" "}
+          <span className="text-green-500">+{file.additions}</span>{" "}
           <span className="text-red-400">-{file.deletions}</span>
         </span>
       )}
@@ -137,139 +242,317 @@ function DiffFileRow({ file, label, indent = 0, onFileClick }: {
 }
 
 const ROW_HEIGHT = 32;
-const LANE_WIDTH = 16;
-const NODE_RADIUS = 4;
 
-/** Deterministic hue from author name (0–360) */
-function nameHue(name: string): number {
+const NODE_SIZE = 18;
+const LANE_WIDTH = NODE_SIZE + 6;
+const LINE_WIDTH = 2;
+
+const REF_COL_WIDTH = 148;
+
+const OVERSCAN = 6;
+
+function laneX(lane: number) {
+  return lane * LANE_WIDTH + LANE_WIDTH / 2 + 2;
+}
+
+function laneY(row: number) {
+  return row * ROW_HEIGHT + ROW_HEIGHT / 2;
+}
+
+function identityHue(identity: string): number {
   let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
+  for (let i = 0; i < identity.length; i++) {
+    h = (h * 31 + identity.charCodeAt(i)) & 0xffff;
+  }
   return h % 360;
 }
 
-/** Small colored-initial avatar for graph rows */
-function AuthorAvatar({ name }: { name: string }) {
-  const hue = nameHue(name);
-  const initial = name.trim().charAt(0).toUpperCase() || "?";
-  return (
-    <span
-      className="shrink-0 inline-flex items-center justify-center rounded-full text-[9px] font-bold select-none"
-      style={{
-        width: 16,
-        height: 16,
-        background: `hsl(${hue} 60% 45%)`,
-        color: "white",
-      }}
-    >
-      {initial}
-    </span>
-  );
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-/** Compute how wide the SVG graph column is */
 function svgWidth(maxLanes: number) {
   return (maxLanes + 1) * LANE_WIDTH + 8;
 }
 
-function GraphSVG({ nodes, maxLanes, height, scrollTop, containerHeight }: {
+function GraphLanes({
+  nodes,
+  maxLanes,
+  height,
+  startRow,
+  endRow,
+}: {
   nodes: GraphNode[];
   maxLanes: number;
   height: number;
-  scrollTop: number;
-  containerHeight: number;
+  startRow: number;
+  endRow: number;
 }) {
   const width = svgWidth(maxLanes);
-  const startRow = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - 5);
-  const endRow = Math.min(nodes.length, Math.ceil((scrollTop + containerHeight) / ROW_HEIGHT) + 5);
   const visibleNodes = nodes.slice(startRow, endRow);
 
   return (
     <svg
       width={width}
       height={height}
-      className="shrink-0"
+      className="absolute inset-y-0 left-0"
       style={{ minWidth: width }}
     >
       {visibleNodes.map((node, vi) => {
         const rowIdx = startRow + vi;
-        const y = rowIdx * ROW_HEIGHT + ROW_HEIGHT / 2;
+        const y1 = laneY(rowIdx);
+        const y2 = laneY(rowIdx + 1);
         return node.edges.map((edge, ei) => {
-          const x1 = edge.from_lane * LANE_WIDTH + LANE_WIDTH / 2 + 4;
-          const color = laneColor(edge.from_lane);
-          const targetIdx = nodes.findIndex(n => n.oid === edge.target_oid);
-          if (targetIdx < 0) return null;
-          const y2 = targetIdx * ROW_HEIGHT + ROW_HEIGHT / 2;
-          const x2 = edge.to_lane * LANE_WIDTH + LANE_WIDTH / 2 + 4;
-          if (edge.from_lane === edge.to_lane) {
-            return <line key={`${rowIdx}-${ei}`} x1={x1} y1={y} x2={x2} y2={y2} stroke={color} strokeWidth={1.5} opacity={0.7} />;
+          const x1 = laneX(edge.from_lane);
+          const x2 = laneX(edge.to_lane);
+          const color = laneColor(edge.color);
+          const key = `${rowIdx}-${ei}`;
+          if (x1 === x2) {
+            return (
+              <line
+                key={key}
+                x1={x1}
+                y1={y1}
+                x2={x2}
+                y2={y2}
+                stroke={color}
+                strokeWidth={LINE_WIDTH}
+                strokeLinecap="round"
+              />
+            );
           }
-          const midY = (y + y2) / 2;
+
+          const bend = (y2 - y1) * 0.5;
           return (
             <path
-              key={`${rowIdx}-${ei}`}
-              d={`M ${x1} ${y} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`}
+              key={key}
+              d={`M ${x1} ${y1} C ${x1} ${y1 + bend}, ${x2} ${
+                y2 - bend
+              }, ${x2} ${y2}`}
               fill="none"
-              stroke={laneColor(edge.to_lane)}
-              strokeWidth={1.5}
-              opacity={0.6}
+              stroke={color}
+              strokeWidth={LINE_WIDTH}
+              strokeLinecap="round"
             />
           );
         });
-      })}
-      {visibleNodes.map((node, vi) => {
-        const rowIdx = startRow + vi;
-        const cx = node.lane * LANE_WIDTH + LANE_WIDTH / 2 + 4;
-        const cy = rowIdx * ROW_HEIGHT + ROW_HEIGHT / 2;
-        const color = laneColor(node.lane);
-        const isWip = node.oid === "WIP";
-        return (
-          <circle
-            key={node.oid}
-            cx={cx}
-            cy={cy}
-            r={node.is_merge ? NODE_RADIUS + 1 : NODE_RADIUS}
-            fill={isWip ? "transparent" : (node.is_merge ? "var(--color-background)" : color)}
-            stroke={color}
-            strokeWidth={2}
-            strokeDasharray={isWip ? "3 2" : undefined}
-          />
-        );
       })}
     </svg>
   );
 }
 
-/** Inline ref badge — branch=teal, tag=amber */
-function RefBadge({ ref: refName }: { ref: string }) {
-  const isTag = refName.startsWith("tag: ") || refName.startsWith("refs/tags/");
-  const isRemote = refName.startsWith("refs/remotes/");
-  const label = refName
-    .replace(/^refs\/(heads|tags|remotes)\//, "")
-    .replace(/^tag: /, "");
+function CommitNode({
+  node,
+  row,
+  selected,
+  onClick,
+}: {
+  node: GraphNode;
+  row: number;
+  selected: boolean;
+  onClick: (event: React.MouseEvent, row: number, oid: string) => void;
+}) {
+  const isWip = node.oid === "WIP";
+  const lane = laneColor(node.color);
+  const hue = identityHue(node.author_email || node.author_name);
+
+  const dot = (
+    <div
+      role="button"
+      tabIndex={-1}
+      onClick={(event) => onClick(event, row, node.oid)}
+      className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full flex items-center justify-center select-none pointer-events-auto"
+      style={{
+        left: laneX(node.lane),
+        top: laneY(row),
+        width: NODE_SIZE,
+        height: NODE_SIZE,
+
+        background: isWip ? "var(--color-background)" : `hsl(${hue} 55% 45%)`,
+        boxShadow: selected
+          ? `0 0 0 2px ${lane}, 0 0 0 5px color-mix(in oklab, ${lane} 35%, transparent)`
+          : `0 0 0 2px ${lane}`,
+        border: isWip ? `1.5px dashed ${lane}` : undefined,
+        color: "white",
+        fontSize: 9,
+        fontWeight: 700,
+        cursor: "pointer",
+      }}
+    >
+      {isWip || node.is_merge ? null : initialsOf(node.author_name)}
+    </div>
+  );
+
+  if (isWip) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>{dot}</TooltipTrigger>
+        <TooltipContent side="right" className="text-xs">
+          Uncommitted changes in your working tree
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
   return (
-    <span className={cn(
-      "inline-flex items-center gap-1 px-2 h-5 rounded-full text-[10px] font-mono font-bold shrink-0 border shadow-sm transition-all cursor-default select-none",
-      isTag
-        ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
-        : isRemote
-          ? "bg-purple-500/20 text-purple-400 border-purple-500/40"
-          : "bg-primary/20 text-primary border-primary/40"
-    )}>
-      {isTag ? <Tag className="h-2.5 w-2.5" /> : <GitBranch className="h-2.5 w-2.5" />}
-      {label}
+    <Tooltip>
+      <TooltipTrigger asChild>{dot}</TooltipTrigger>
+      <TooltipContent side="right" className="max-w-xs">
+        <div className="space-y-1 text-xs">
+          <p className="font-medium">{node.author_name}</p>
+          {node.author_email && (
+            <p className="text-muted-foreground font-mono text-[10px]">
+              {node.author_email}
+            </p>
+          )}
+          <p className="text-muted-foreground">
+            {formatFullDate(node.author_time)}
+          </p>
+          {node.is_merge && (
+            <p className="text-muted-foreground">
+              Merge of {node.parent_oids.length} parents
+            </p>
+          )}
+        </div>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+const REF_STYLE = {
+  head: {
+    chip: "bg-primary text-primary-foreground border-primary",
+    icon: Check,
+    label: "Checked out",
+  },
+  local: {
+    chip: "bg-primary/15 text-primary border-primary/40",
+    icon: GitBranch,
+    label: "Local branch",
+  },
+  remote: {
+    chip: "bg-sky-500/15 text-sky-400 border-sky-500/40",
+    icon: Cloud,
+    label: "Remote branch",
+  },
+  tag: {
+    chip: "bg-amber-500/15 text-amber-400 border-amber-500/40",
+    icon: Tag,
+    label: "Tag",
+  },
+} as const;
+
+type RefStyleKey = keyof typeof REF_STYLE;
+
+function styleKey(ref: RefInfo): RefStyleKey {
+  if (ref.is_head) return "head";
+  return ref.kind;
+}
+
+export function RefBadge({
+  refInfo,
+  compact,
+}: {
+  refInfo: RefInfo;
+  compact?: boolean;
+}) {
+  const style = REF_STYLE[styleKey(refInfo)];
+  const Icon = style.icon;
+
+  const remote = refInfo.kind === "remote" ? refInfo.remote : null;
+  const label =
+    remote && refInfo.name.startsWith(`${remote}/`)
+      ? refInfo.name.slice(remote.length + 1)
+      : refInfo.name;
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 h-5 rounded-full text-[10px] font-mono font-bold",
+        "border shrink-0 select-none max-w-full",
+        compact ? "px-1.5" : "px-2",
+        style.chip,
+      )}
+      title={`${style.label}: ${refInfo.name}`}
+    >
+      <Icon className="h-2.5 w-2.5 shrink-0" />
+      {remote && <span className="opacity-60 shrink-0">{remote}/</span>}
+      <span className="truncate">{label}</span>
     </span>
   );
 }
 
-/** Commit detail panel — right side */
+export function RefCell({
+  refs,
+  onSolo,
+}: {
+  refs: RefInfo[];
+  onSolo: (ref: RefInfo) => void;
+}) {
+  if (refs.length === 0) {
+    return <span style={{ width: REF_COL_WIDTH }} className="shrink-0" />;
+  }
+
+  const [primary, ...rest] = refs;
+
+  return (
+    <span
+      className="shrink-0 flex items-center justify-end gap-1 pr-2 overflow-hidden"
+      style={{ width: REF_COL_WIDTH }}
+    >
+      <button
+        className="min-w-0 flex items-center cursor-pointer"
+        onClick={(e) => {
+          e.stopPropagation();
+          onSolo(primary);
+        }}
+        title={`Show only ${primary.name}`}
+      >
+        <RefBadge refInfo={primary} />
+      </button>
+
+      {rest.length > 0 && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="inline-flex items-center h-5 px-1.5 rounded-full border border-border bg-muted text-[10px] font-mono font-bold text-muted-foreground shrink-0 cursor-default">
+              +{rest.length}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="max-w-xs">
+            <div className="space-y-1">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                Also here
+              </p>
+              <div className="flex flex-col items-start gap-1">
+                {rest.map((r) => (
+                  <button
+                    key={`${r.kind}:${r.name}`}
+                    className="max-w-full"
+                    onClick={() => onSolo(r)}
+                    title={`Show only ${r.name}`}
+                  >
+                    <RefBadge refInfo={r} />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      )}
+    </span>
+  );
+}
+
 export function CommitDetailPanel({ onClose }: { onClose: () => void }) {
-  const { tab, dispatch } = useGit();
+  const { tab, dispatch, showFileHistory, showBlame } = useGit();
   const [viewMode, setViewMode] = useState<"path" | "tree">("path");
 
   const commit = tab?.selectedCommitInfo;
   const diff = tab?.commitDiff ?? [];
 
-  
   useEffect(() => {
     setViewMode("path");
   }, [tab?.selectedCommitOid]);
@@ -277,30 +560,41 @@ export function CommitDetailPanel({ onClose }: { onClose: () => void }) {
   if (!commit) return null;
 
   const title = commit.summary;
-  const body = commit.message.length > commit.summary.length
-    ? commit.message.slice(commit.summary.length).trim()
-    : null;
+  const body =
+    commit.message.length > commit.summary.length
+      ? commit.message.slice(commit.summary.length).trim()
+      : null;
 
   const handleFileClick = (file: DiffFile) => {
     dispatch({ type: "SET_VIEWING_DIFF_FILE", payload: file });
   };
 
+  const filePath = (file: DiffFile) => file.new_path || file.old_path || "";
+
   return (
     <div className="h-full flex flex-col bg-card">
-      
       <div className="px-3 py-3 border-b shrink-0 space-y-2.5">
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-semibold text-sm leading-snug flex-1">{title}</h3>
-          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={onClose}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 shrink-0"
+            onClick={onClose}
+          >
             <X className="h-3.5 w-3.5" />
           </Button>
         </div>
         {body && (
-          <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">{body}</p>
+          <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
+            {body}
+          </p>
         )}
         {commit.refs.length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {commit.refs.map(ref => <RefBadge key={ref} ref={ref} />)}
+            {commit.refs.map((ref) => (
+              <RefBadge key={`${ref.kind}:${ref.name}`} refInfo={ref} />
+            ))}
           </div>
         )}
         <Separator />
@@ -317,16 +611,25 @@ export function CommitDetailPanel({ onClose }: { onClose: () => void }) {
             <Clock className="h-3.5 w-3.5 shrink-0" />
             <span>{formatFullDate(commit.author_time)}</span>
           </div>
+          {commit.signature !== "none" && (
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-primary" />
+              <span title="Tentacle does not hold the signer's public key, so it reports the signature's presence rather than verifying it.">
+                Signed
+              </span>
+            </div>
+          )}
           {commit.parent_oids.length > 0 && (
             <div className="flex items-center gap-2">
               <GitCommit className="h-3.5 w-3.5 shrink-0" />
-              <span className="font-mono">{commit.parent_oids.map(p => p.slice(0, 7)).join(", ")}</span>
+              <span className="font-mono">
+                {commit.parent_oids.map((p) => p.slice(0, 7)).join(", ")}
+              </span>
             </div>
           )}
         </div>
       </div>
 
-      
       <div className="px-2 h-8 border-b shrink-0 flex items-center gap-1 bg-muted/40">
         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex-1 pl-1">
           Files changed ({diff.length})
@@ -351,7 +654,6 @@ export function CommitDetailPanel({ onClose }: { onClose: () => void }) {
         </Button>
       </div>
 
-      
       <ScrollArea className="flex-1">
         <div className="py-px">
           {viewMode === "path" ? (
@@ -359,29 +661,58 @@ export function CommitDetailPanel({ onClose }: { onClose: () => void }) {
             diff.map((file, idx) => {
               const path = file.new_path || file.old_path || "unknown";
               const fileName = path.split("/").pop() || path;
-              const dir = path.includes("/") ? path.substring(0, path.lastIndexOf("/") + 1) : "";
+              const dir = path.includes("/")
+                ? path.substring(0, path.lastIndexOf("/") + 1)
+                : "";
               return (
-                <button
-                  key={idx}
-                  className="w-full flex items-center gap-2 px-3 h-7 text-xs hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer text-left"
-                  onClick={() => handleFileClick(file)}
-                >
-                  <span className="font-bold w-4 text-center shrink-0" style={{ color: statusColor(file.status) }}>
-                    {statusIcon(file.status)}
-                  </span>
-                  <File className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  <span className="truncate flex-1 font-mono">
-                    {dir && <span className="text-muted-foreground">{dir}</span>}
-                    {fileName}
-                  </span>
-                  {!file.binary && (
-                    <span className="shrink-0 tabular-nums">
-                      <span className="text-green-500">+{file.additions}</span>
-                      {" "}
-                      <span className="text-red-400">-{file.deletions}</span>
-                    </span>
-                  )}
-                </button>
+                <ContextMenu key={idx}>
+                  <ContextMenuTrigger asChild>
+                    <button
+                      className="w-full flex items-center gap-2 px-3 h-7 text-xs hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer text-left"
+                      onClick={() => handleFileClick(file)}
+                    >
+                      <span
+                        className="font-bold w-4 text-center shrink-0"
+                        style={{ color: statusColor(file.status) }}
+                      >
+                        {statusIcon(file.status)}
+                      </span>
+                      <File className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      <span className="truncate flex-1 font-mono">
+                        {dir && (
+                          <span className="text-muted-foreground">{dir}</span>
+                        )}
+                        {fileName}
+                      </span>
+                      {!file.binary && (
+                        <span className="shrink-0 tabular-nums">
+                          <span className="text-green-500">
+                            +{file.additions}
+                          </span>{" "}
+                          <span className="text-red-400">
+                            -{file.deletions}
+                          </span>
+                        </span>
+                      )}
+                    </button>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent className="w-44">
+                    <ContextMenuItem
+                      className="gap-2 text-xs"
+                      onSelect={() => showFileHistory(filePath(file))}
+                    >
+                      <FileClock className="h-3.5 w-3.5 shrink-0" />
+                      File history
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      className="gap-2 text-xs"
+                      onSelect={() => showBlame(filePath(file), commit.oid)}
+                    >
+                      <ScanLine className="h-3.5 w-3.5 shrink-0" />
+                      Blame at this commit
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               );
             })
           ) : (
@@ -398,21 +729,172 @@ export function CommitDetailPanel({ onClose }: { onClose: () => void }) {
   );
 }
 
+function GraphSearch() {
+  const { tab, setGraphQuery } = useGit();
+  const [text, setText] = useState(tab?.graphQuery.text ?? "");
+  const [path, setPath] = useState(tab?.graphQuery.path ?? "");
+  const [author, setAuthor] = useState(tab?.graphQuery.author ?? "");
+  const [open, setOpen] = useState(false);
+
+  const branch = tab?.graphQuery.branch;
+
+  const primed = useRef(false);
+  useEffect(() => {
+    if (!primed.current) {
+      primed.current = true;
+      return;
+    }
+    const timer = setTimeout(() => {
+      void setGraphQuery({
+        ...(branch ? { branch } : {}),
+        max_count: 500,
+        text: text.trim() || undefined,
+        path: path.trim() || undefined,
+        author: author.trim() || undefined,
+      });
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [author, branch, path, text, setGraphQuery]);
+
+  const active = Boolean(text || path || author);
+
+  return (
+    <div className="border-b bg-card px-2 py-1.5 shrink-0 space-y-1.5">
+      <div className="flex items-center gap-1.5">
+        <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <Input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Search messages, authors and hashes…"
+          className="h-7 text-xs"
+        />
+        <Button
+          variant={open || active ? "secondary" : "ghost"}
+          size="sm"
+          className="h-7 text-[11px] shrink-0"
+          onClick={() => setOpen((o) => !o)}
+        >
+          Filters
+        </Button>
+        {active && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0"
+            title="Clear filters"
+            onClick={() => {
+              setText("");
+              setPath("");
+              setAuthor("");
+            }}
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        )}
+      </div>
+      {open && (
+        <div className="flex gap-1.5">
+          <Input
+            value={author}
+            onChange={(e) => setAuthor(e.target.value)}
+            placeholder="Author"
+            className="h-7 text-xs"
+          />
+          <Input
+            value={path}
+            onChange={(e) => setPath(e.target.value)}
+            placeholder="Path, e.g. src/lib/api.ts"
+            className="h-7 text-xs font-mono"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function GraphView() {
-  const { tab, selectCommit, checkoutCommit, createBranch, mergeBranch, rebaseOnto, cherryPick, revertCommit, resetToCommit, createTag } = useGit();
+  const {
+    tab,
+    selectCommit,
+    checkoutCommit,
+    createBranch,
+    mergeBranch,
+    rebaseOnto,
+    rebaseInteractive,
+    cherryPick,
+    revertCommit,
+    resetToCommit,
+    createTag,
+    setGraphQuery,
+    setError,
+  } = useGit();
+  const [rebaseFrom, setRebaseFrom] = useState<string | null>(null);
   const graph = tab?.graph;
+
+  const [multi, setMulti] = useState<string[]>([]);
+  const anchor = useRef<number | null>(null);
+
+  useEffect(() => {
+    setMulti([]);
+    anchor.current = null;
+  }, [tab?.id, graph]);
+
+  const oids = useMemo(() => (graph?.nodes ?? []).map((n) => n.oid), [graph]);
+
+  const handleRowClick = useCallback(
+    (event: React.MouseEvent, index: number, oid: string) => {
+      const additive = event.metaKey || event.ctrlKey;
+      const ranged = event.shiftKey;
+
+      if (!additive && !ranged) {
+        setMulti([]);
+        anchor.current = index;
+        void selectCommit(oid);
+        return;
+      }
+
+      if (oid === "WIP") return;
+
+      if (ranged && anchor.current !== null) {
+        const [from, to] = [anchor.current, index].sort((a, b) => a - b);
+        setMulti(oids.slice(from, to + 1).filter((o) => o !== "WIP"));
+        return;
+      }
+
+      anchor.current = index;
+      setMulti((prev) =>
+        prev.includes(oid) ? prev.filter((o) => o !== oid) : [...prev, oid],
+      );
+    },
+    [oids, selectCommit],
+  );
+
+  const isSelected = useCallback(
+    (oid: string) =>
+      multi.length > 0 ? multi.includes(oid) : tab?.selectedCommitOid === oid,
+    [multi, tab?.selectedCommitOid],
+  );
+
+  const soloRef = useCallback(
+    (ref: RefInfo) => {
+      void setGraphQuery({
+        ...(tab?.graphQuery ?? {}),
+        max_count: 500,
+        branch: ref.name,
+      });
+    },
+    [setGraphQuery, tab?.graphQuery],
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [containerHeight, setContainerHeight] = useState(600);
 
-  
-  
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    
+
     setContainerHeight(el.clientHeight || 600);
-    const observer = new ResizeObserver(entries => {
+    const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const h = entry.contentRect.height;
         if (h > 0) setContainerHeight(h);
@@ -426,13 +908,26 @@ export function GraphView() {
     setScrollTop(e.currentTarget.scrollTop);
   }, []);
 
+  const filtering = Boolean(
+    tab?.graphQuery.text || tab?.graphQuery.path || tab?.graphQuery.author,
+  );
+
   if (!graph || graph.nodes.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full text-muted-foreground">
-        <div className="text-center space-y-2">
-          <GitCommit className="h-10 w-10 mx-auto opacity-30" />
-          <p className="text-sm font-medium">No commits yet</p>
-          <p className="text-xs opacity-60">Make your first commit to see the history</p>
+      <div className="flex flex-col h-full">
+        <GraphSearch />
+        <div className="flex-1 flex items-center justify-center text-muted-foreground">
+          <div className="text-center space-y-2">
+            <GitCommit className="h-10 w-10 mx-auto opacity-30" />
+            <p className="text-sm font-medium">
+              {filtering ? "No commits match" : "No commits yet"}
+            </p>
+            <p className="text-xs opacity-60">
+              {filtering
+                ? "Try a shorter search, or clear the filters."
+                : "Make your first commit to see the history."}
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -442,38 +937,150 @@ export function GraphView() {
   const hasSelection = tab?.selectedCommitOid != null;
   const graphColWidth = svgWidth(graph.max_lanes);
 
+  const startRow = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
+  const endRow = Math.min(
+    graph.nodes.length,
+    Math.ceil((scrollTop + containerHeight) / ROW_HEIGHT) + OVERSCAN,
+  );
+
+  const squashSelection = async () => {
+    const message = await promptFor({
+      title: `Squash ${multi.length} commits`,
+      description:
+        "They become one commit. History is rewritten below this point.",
+      label: "Message for the combined commit",
+      defaultValue:
+        graph.nodes.find((n) => n.oid === multi[multi.length - 1])?.summary ??
+        "",
+    });
+    if (!message) return;
+
+    const result = buildSquashPlan(graph.nodes, multi, message);
+    if (!result.ok) {
+      setError(result.reason);
+      return;
+    }
+
+    setMulti([]);
+    await rebaseInteractive(result.plan.onto, result.plan.steps);
+  };
+
+  const soloBranch = tab?.graphQuery.branch;
+
   return (
-    <ResizablePanelGroup direction="horizontal" key={hasSelection ? "with-detail" : "no-detail"}>
+    <ResizablePanelGroup
+      direction="horizontal"
+      key={hasSelection ? "with-detail" : "no-detail"}
+    >
       <ResizablePanel minSize="400px">
         <div className="flex flex-col h-full">
-          
+          <GraphSearch />
+
+          {soloBranch && (
+            <div className="shrink-0 flex items-center gap-2 border-b bg-primary/10 px-3 py-1.5">
+              <CircleSlash className="h-3.5 w-3.5 shrink-0 text-primary" />
+              <span className="text-xs">
+                Showing only{" "}
+                <span className="font-mono font-medium">{soloBranch}</span> and
+                its ancestors
+              </span>
+              <span className="flex-1" />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[11px]"
+                onClick={() =>
+                  void setGraphQuery({
+                    ...(tab?.graphQuery ?? {}),
+                    branch: undefined,
+                  })
+                }
+              >
+                Show all branches
+              </Button>
+            </div>
+          )}
+
+          {multi.length > 0 && (
+            <div className="shrink-0 flex items-center gap-2 border-b bg-accent px-3 py-1.5">
+              <Layers className="h-3.5 w-3.5 shrink-0" />
+              <span className="text-xs font-medium">
+                {multi.length} commits selected
+              </span>
+              <span className="flex-1" />
+              <Button
+                size="sm"
+                className="h-6 text-[11px] gap-1"
+                disabled={multi.length < 2}
+                onClick={squashSelection}
+              >
+                <Combine className="h-3 w-3" /> Squash
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-[11px] gap-1"
+                onClick={async () => {
+                  const ordered = graph.nodes
+                    .filter((n) => multi.includes(n.oid))
+                    .reverse()
+                    .map((n) => n.oid);
+                  setMulti([]);
+                  for (const oid of ordered) {
+                    const result = await cherryPick(oid);
+                    if (result?.status === "conflicts") break;
+                  }
+                }}
+              >
+                <Cherry className="h-3 w-3" /> Cherry-pick
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-[11px] gap-1"
+                onClick={() => {
+                  const ordered = graph.nodes
+                    .filter((n) => multi.includes(n.oid))
+                    .map((n) => n.oid);
+                  void navigator.clipboard.writeText(ordered.join("\n"));
+                }}
+              >
+                <Copy className="h-3 w-3" /> Copy SHAs
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => setMulti([])}
+                aria-label="Clear selection"
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
+
           <div className="h-8 border-b flex items-center px-2 text-xs text-muted-foreground font-semibold uppercase tracking-wider shrink-0 bg-muted/40 select-none">
-            
-            <span style={{ width: graphColWidth, minWidth: graphColWidth }} className="shrink-0" />
-            
+            <span
+              className="shrink-0 text-right pr-2"
+              style={{ width: REF_COL_WIDTH }}
+            >
+              Refs
+            </span>
+            <span
+              style={{ width: graphColWidth, minWidth: graphColWidth }}
+              className="shrink-0"
+            />
             <span className="w-16 shrink-0 pl-1">Hash</span>
-            
             <span className="flex-1 ml-2">Message</span>
-            
-            <span className="w-36 text-right shrink-0">Author</span>
-            
             <span className="w-28 text-right pr-2 shrink-0">Date</span>
           </div>
 
-          <div ref={scrollRef} className="flex-1 overflow-auto" onScroll={handleScroll}>
-            {/* The outer div establishes the scroll height. Inside we use a grid
-                so the SVG and text rows share the same row without absolute positioning. */}
-            <div style={{ height: totalHeight, display: "grid", gridTemplateColumns: `${graphColWidth}px 1fr` }}>
-              
-              <GraphSVG
-                nodes={graph.nodes}
-                maxLanes={graph.max_lanes}
-                height={totalHeight}
-                scrollTop={scrollTop}
-                containerHeight={containerHeight}
-              />
-
-              
+          <div
+            ref={scrollRef}
+            className="flex-1 overflow-auto"
+            onScroll={handleScroll}
+          >
+            <div className="relative" style={{ height: totalHeight }}>
               <div className="relative">
                 {graph.nodes.map((node, idx) => (
                   <ContextMenu key={node.oid}>
@@ -481,8 +1088,14 @@ export function GraphView() {
                       <div
                         draggable={node.oid !== "WIP"}
                         onDragStart={(e) => {
-                          e.dataTransfer.setData("application/git-oid", node.oid);
-                          e.dataTransfer.setData("application/git-summary", node.summary);
+                          e.dataTransfer.setData(
+                            "application/git-oid",
+                            node.oid,
+                          );
+                          e.dataTransfer.setData(
+                            "application/git-summary",
+                            node.summary,
+                          );
                           e.dataTransfer.effectAllowed = "copyMove";
                         }}
                         onDragOver={(e) => {
@@ -491,69 +1104,115 @@ export function GraphView() {
                             e.dataTransfer.dropEffect = "move";
                           }
                         }}
-                        onDrop={(e) => {
+                        onDrop={async (e) => {
                           e.preventDefault();
-                          const sourceOid = e.dataTransfer.getData("application/git-oid");
-                          const sourceSummary = e.dataTransfer.getData("application/git-summary");
-                          if (sourceOid && sourceOid !== node.oid) {
-                            const action = window.prompt(
-                              `Dropped commit ${sourceOid.slice(0, 7)} (${sourceSummary}) onto ${node.short_oid}.\n\n` +
-                              `Choose action:\n(m) Merge into current branch\n(r) Rebase current branch onto this\n(c) Cherry-pick onto current`,
-                              "m"
-                            );
-                            if (action === "m") mergeBranch(sourceOid);
-                            else if (action === "r") rebaseOnto(node.oid);
-                            else if (action === "c") cherryPick(sourceOid);
+                          const sourceOid = e.dataTransfer.getData(
+                            "application/git-oid",
+                          );
+                          const sourceSummary = e.dataTransfer.getData(
+                            "application/git-summary",
+                          );
+                          if (!sourceOid || sourceOid === node.oid) return;
+
+                          const short = sourceOid.slice(0, 7);
+                          const action = await chooseFrom({
+                            title: `Drop ${short} onto ${node.short_oid}`,
+                            description: sourceSummary,
+                            options: [
+                              {
+                                value: "merge",
+                                label: `Merge ${short} into the current branch`,
+                                description:
+                                  "Creates a merge commit, keeping both histories.",
+                              },
+                              {
+                                value: "rebase",
+                                label: `Rebase the current branch onto ${node.short_oid}`,
+                                description:
+                                  "Replays your commits on top. Rewrites history.",
+                              },
+                              {
+                                value: "cherry-pick",
+                                label: `Cherry-pick ${short} onto the current branch`,
+                                description:
+                                  "Copies just that one commit across.",
+                              },
+                            ],
+                          });
+
+                          if (action === "merge") void mergeBranch(sourceOid);
+                          else if (action === "rebase") {
+                            void rebaseOnto(node.oid);
+                          } else if (action === "cherry-pick") {
+                            void cherryPick(sourceOid);
                           }
                         }}
                         className={cn(
                           "absolute inset-x-0 flex items-center px-2 text-xs cursor-pointer transition-colors group",
-                          tab?.selectedCommitOid === node.oid
+                          isSelected(node.oid)
                             ? "bg-accent text-accent-foreground"
                             : "hover:bg-accent/50",
-                          node.oid === "WIP" && "opacity-80 italic"
+                          multi.includes(node.oid) &&
+                            "shadow-[inset_3px_0_0_0_var(--color-primary)]",
+                          node.oid === "WIP" && "opacity-80 italic",
                         )}
                         style={{ top: idx * ROW_HEIGHT, height: ROW_HEIGHT }}
-                        onClick={() => selectCommit(node.oid)}
+                        onClick={(e) => handleRowClick(e, idx, node.oid)}
                       >
-                        
+                        <RefCell refs={node.refs} onSolo={soloRef} />
+
+                        <span
+                          className="shrink-0"
+                          style={{
+                            width: graphColWidth,
+                            minWidth: graphColWidth,
+                          }}
+                        />
+
                         <span className="w-16 font-mono text-primary shrink-0 pl-1 truncate">
                           {node.oid === "WIP" ? "--" : node.short_oid}
                         </span>
 
-                        
-                        <span className="flex-1 ml-2 flex items-center gap-1 min-w-0 overflow-hidden">
+                        <span className="flex-1 ml-2 flex items-center gap-1.5 min-w-0 overflow-hidden">
                           {node.oid === "WIP" && (
                             <span className="bg-muted px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-muted-foreground border border-dashed shrink-0">
                               WIP
                             </span>
                           )}
-                          {node.refs.map(ref => <RefBadge key={ref} ref={ref} />)}
-                          <span className={cn("truncate", node.oid === "WIP" && "text-muted-foreground font-medium")}>
+                          <span
+                            className={cn(
+                              "truncate",
+                              node.oid === "WIP" &&
+                                "text-muted-foreground font-medium",
+                            )}
+                          >
                             {node.summary}
                           </span>
+                          {node.signature !== "none" && (
+                            <ShieldCheck
+                              className="h-3 w-3 shrink-0 text-primary/70"
+                              aria-label="Signed commit"
+                            />
+                          )}
                         </span>
 
-                        
-                        <span className="w-36 flex items-center justify-end gap-1.5 text-muted-foreground shrink-0 overflow-hidden">
-                          <span className="truncate text-right">{node.author_name}</span>
-                          <AuthorAvatar name={node.author_name} />
-                        </span>
-
-                        
                         <span className="w-28 text-right text-muted-foreground shrink-0 pr-2 tabular-nums">
-                          {node.oid === "WIP" ? "now" : formatTimestamp(node.author_time)}
+                          {node.oid === "WIP"
+                            ? "now"
+                            : formatTimestamp(node.author_time)}
                         </span>
                       </div>
                     </ContextMenuTrigger>
 
                     <ContextMenuContent className="w-56">
                       <ContextMenuLabel className="text-xs font-mono text-muted-foreground font-normal">
-                        {node.short_oid} — {node.summary.length > 32 ? node.summary.slice(0, 32) + "…" : node.summary}
+                        {node.short_oid} —{" "}
+                        {node.summary.length > 32
+                          ? node.summary.slice(0, 32) + "…"
+                          : node.summary}
                       </ContextMenuLabel>
                       <ContextMenuSeparator />
 
-                      
                       <ContextMenuItem
                         className="gap-2 text-xs"
                         onSelect={() => navigator.clipboard.writeText(node.oid)}
@@ -563,7 +1222,9 @@ export function GraphView() {
                       </ContextMenuItem>
                       <ContextMenuItem
                         className="gap-2 text-xs"
-                        onSelect={() => navigator.clipboard.writeText(node.short_oid)}
+                        onSelect={() =>
+                          navigator.clipboard.writeText(node.short_oid)
+                        }
                       >
                         <Copy className="h-3.5 w-3.5 shrink-0 opacity-0" />
                         Copy short SHA
@@ -571,7 +1232,6 @@ export function GraphView() {
 
                       <ContextMenuSeparator />
 
-                      
                       <ContextMenuItem
                         className="gap-2 text-xs"
                         onSelect={() => checkoutCommit(node.oid)}
@@ -580,24 +1240,44 @@ export function GraphView() {
                         Checkout commit
                       </ContextMenuItem>
 
-                      
                       <ContextMenuItem
                         className="gap-2 text-xs"
-                        onSelect={() => {
-                          const name = window.prompt("New branch name:");
-                          if (name?.trim()) createBranch(name.trim(), node.oid);
+                        onSelect={async () => {
+                          const name = await promptFor({
+                            title: "New branch",
+                            description: `Starting at ${node.short_oid} — ${node.summary}`,
+                            label: "Branch name",
+                            placeholder: "feature/my-change",
+                            validate: (v) =>
+                              /[\s~^:?*\[\\]/.test(v)
+                                ? "Branch names cannot contain spaces or ~ ^ : ? * [ \\"
+                                : null,
+                          });
+                          if (name) void createBranch(name, node.oid, true);
                         }}
                       >
                         <GitBranch className="h-3.5 w-3.5 shrink-0" />
                         Create branch here…
                       </ContextMenuItem>
 
-                      
                       <ContextMenuItem
                         className="gap-2 text-xs"
-                        onSelect={() => {
-                          const name = window.prompt("Tag name:");
-                          if (name?.trim()) createTag(name.trim(), node.oid);
+                        onSelect={async () => {
+                          const name = await promptFor({
+                            title: "New tag",
+                            description: `Pointing at ${node.short_oid} — ${node.summary}`,
+                            label: "Tag name",
+                            placeholder: "v1.0.0",
+                          });
+                          if (!name) return;
+                          const message = await promptFor({
+                            title: "Tag message",
+                            description:
+                              "A message makes this an annotated tag, recording who tagged and when. Leave blank for a lightweight tag.",
+                            label: "Message",
+                            validate: () => null,
+                          });
+                          void createTag(name, node.oid, message || undefined);
                         }}
                       >
                         <Tag className="h-3.5 w-3.5 shrink-0" />
@@ -606,7 +1286,6 @@ export function GraphView() {
 
                       <ContextMenuSeparator />
 
-                      
                       <ContextMenuItem
                         className="gap-2 text-xs"
                         onSelect={() => cherryPick(node.oid)}
@@ -615,7 +1294,15 @@ export function GraphView() {
                         Cherry-pick
                       </ContextMenuItem>
 
-                      
+                      <ContextMenuItem
+                        className="gap-2 text-xs"
+                        disabled={node.oid === "WIP"}
+                        onSelect={() => setRebaseFrom(node.oid)}
+                      >
+                        <ListOrdered className="h-3.5 w-3.5 shrink-0" />
+                        Rebase interactively from here…
+                      </ContextMenuItem>
+
                       <ContextMenuItem
                         className="gap-2 text-xs"
                         onSelect={() => revertCommit(node.oid)}
@@ -626,7 +1313,6 @@ export function GraphView() {
 
                       <ContextMenuSeparator />
 
-                      
                       <ContextMenuSub>
                         <ContextMenuSubTrigger className="gap-2 text-xs">
                           <RotateCcw className="h-3.5 w-3.5 shrink-0" />
@@ -649,10 +1335,16 @@ export function GraphView() {
                           </ContextMenuItem>
                           <ContextMenuItem
                             className="gap-2 text-xs text-destructive focus:text-destructive"
-                            onSelect={() => {
-                              if (window.confirm(`Hard reset to ${node.short_oid}? Uncommitted changes will be lost.`)) {
-                                resetToCommit(node.oid, "hard");
-                              }
+                            onSelect={async () => {
+                              const ok = await confirmThat({
+                                title: `Hard reset to ${node.short_oid}?`,
+                                description:
+                                  "Uncommitted changes are lost and commits after this one leave the branch. " +
+                                  "They stay recoverable from the reflog.",
+                                confirmLabel: "Hard reset",
+                                destructive: true,
+                              });
+                              if (ok) void resetToCommit(node.oid, "hard");
                             }}
                           >
                             <span className="w-3.5 shrink-0" />
@@ -664,7 +1356,35 @@ export function GraphView() {
                   </ContextMenu>
                 ))}
               </div>
+
+              <div
+                className="absolute top-0 bottom-0 pointer-events-none z-10"
+                style={{ left: REF_COL_WIDTH + 8, width: graphColWidth }}
+              >
+                <GraphLanes
+                  nodes={graph.nodes}
+                  maxLanes={graph.max_lanes}
+                  height={totalHeight + ROW_HEIGHT / 2}
+                  startRow={startRow}
+                  endRow={endRow}
+                />
+                {graph.nodes.slice(startRow, endRow).map((node, vi) => (
+                  <CommitNode
+                    key={node.oid}
+                    node={node}
+                    row={startRow + vi}
+                    selected={isSelected(node.oid)}
+                    onClick={handleRowClick}
+                  />
+                ))}
+              </div>
             </div>
+            {graph.truncated && (
+              <div className="h-8 flex items-center justify-center text-[11px] text-muted-foreground select-none border-t">
+                History truncated at {graph.total_commits.toLocaleString()}{" "}
+                commits — older commits are not shown.
+              </div>
+            )}
           </div>
         </div>
       </ResizablePanel>
@@ -676,6 +1396,13 @@ export function GraphView() {
             <CommitDetailPanel onClose={() => selectCommit(null)} />
           </ResizablePanel>
         </>
+      )}
+
+      {rebaseFrom && (
+        <InteractiveRebaseDialog
+          fromOid={rebaseFrom}
+          onClose={() => setRebaseFrom(null)}
+        />
       )}
     </ResizablePanelGroup>
   );

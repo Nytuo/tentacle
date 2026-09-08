@@ -1,36 +1,57 @@
-import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useGit } from "@/hooks/use-git";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
-  ResizablePanelGroup,
-  ResizablePanel,
   ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import {
-  AlertTriangle, Check, ChevronLeft, ChevronRight, File,
-  GitMerge, X, ArrowDown, ArrowUp, Copy,
+  AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  File,
+  GitMerge,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ConflictFileData } from "@/lib/api";
+import {
+  ConflictRegions,
+  parseConflictRegions,
+} from "@/components/merge/conflict-regions";
 
 export function MergeToolView() {
-  const { tab, dispatch, resolveConflictFile, resolveConflictWithSide, abortMerge, createCommit, refreshAll, refreshDiffs } = useGit();
+  const {
+    tab,
+    dispatch,
+    resolveConflictFile,
+    resolveConflictWithSide,
+    resolveConflictHunks,
+    abortOperation,
+    createCommit,
+    refreshAll,
+    refreshDiffs,
+  } = useGit();
   const [selectedIdx, setSelectedIdx] = useState(0);
+
+  const [mode, setMode] = useState<"regions" | "editor">("regions");
   const conflicts = tab?.conflictFiles ?? [];
 
   const selected = conflicts[selectedIdx] ?? null;
 
   const handleFinishMerge = useCallback(async () => {
-    
     try {
       await createCommit("Merge commit (conflicts resolved)");
       dispatch({ type: "SET_CONFLICT_FILES", payload: [] });
       dispatch({ type: "SET_ACTIVE_VIEW", payload: "graph" });
-    } catch {
-      
-    }
+    } catch {}
   }, [createCommit, dispatch]);
 
   if (conflicts.length === 0) {
@@ -41,7 +62,9 @@ export function MergeToolView() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => dispatch({ type: "SET_ACTIVE_VIEW", payload: "graph" })}
+          onClick={() =>
+            dispatch({ type: "SET_ACTIVE_VIEW", payload: "graph" })
+          }
         >
           Back to History
         </Button>
@@ -51,18 +74,18 @@ export function MergeToolView() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      
       <div className="h-10 border-b flex items-center gap-2 px-3 shrink-0 bg-card">
         <AlertTriangle className="h-4 w-4 text-amber-500" />
         <span className="text-sm font-medium">
-          Merge Conflicts — {conflicts.length} file{conflicts.length !== 1 && "s"} to resolve
+          Merge Conflicts — {conflicts.length} file
+          {conflicts.length !== 1 && "s"} to resolve
         </span>
         <div className="flex-1" />
         <Button
           variant="destructive"
           size="sm"
           className="h-7 text-xs gap-1.5"
-          onClick={abortMerge}
+          onClick={abortOperation}
         >
           <X className="h-3.5 w-3.5" />
           Abort Merge
@@ -79,7 +102,6 @@ export function MergeToolView() {
       </div>
 
       <ResizablePanelGroup direction="horizontal">
-        
         <ResizablePanel defaultSize={22} minSize={16} maxSize={36}>
           <div className="flex flex-col h-full bg-card">
             <div className="h-8 border-b flex items-center px-2 shrink-0 bg-muted/40">
@@ -101,13 +123,18 @@ export function MergeToolView() {
                       "w-full flex items-center gap-1.5 px-2 h-7 text-left transition-colors cursor-pointer",
                       idx === selectedIdx
                         ? "bg-accent text-accent-foreground"
-                        : "hover:bg-accent/60 text-muted-foreground hover:text-accent-foreground"
+                        : "hover:bg-accent/60 text-muted-foreground hover:text-accent-foreground",
                     )}
                   >
                     <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" />
                     <File className="h-3 w-3 shrink-0 text-muted-foreground" />
-                    <span className="truncate flex-1 font-mono text-xs" title={cf.path}>
-                      {dir && <span className="text-muted-foreground">{dir}</span>}
+                    <span
+                      className="truncate flex-1 font-mono text-xs"
+                      title={cf.path}
+                    >
+                      {dir && (
+                        <span className="text-muted-foreground">{dir}</span>
+                      )}
                       {fileName}
                     </span>
                   </button>
@@ -115,7 +142,6 @@ export function MergeToolView() {
               })}
             </ScrollArea>
 
-            
             {selected && (
               <div className="p-2 border-t space-y-1.5 shrink-0">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
@@ -126,7 +152,9 @@ export function MergeToolView() {
                     variant="outline"
                     size="sm"
                     className="flex-1 h-7 text-xs gap-1"
-                    onClick={() => resolveConflictWithSide(selected.path, "current")}
+                    onClick={() =>
+                      resolveConflictWithSide(selected.path, "current")
+                    }
                   >
                     Current
                   </Button>
@@ -134,7 +162,9 @@ export function MergeToolView() {
                     variant="outline"
                     size="sm"
                     className="flex-1 h-7 text-xs gap-1"
-                    onClick={() => resolveConflictWithSide(selected.path, "incoming")}
+                    onClick={() =>
+                      resolveConflictWithSide(selected.path, "incoming")
+                    }
                   >
                     Incoming
                   </Button>
@@ -146,23 +176,63 @@ export function MergeToolView() {
 
         <ResizableHandle />
 
-        
         <ResizablePanel defaultSize={78}>
-          {selected ? (
-            selected.is_binary ? (
-              <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-                Binary file — cannot merge visually
-              </div>
-            ) : (
-              <ThreePaneMerge
-                key={selected.path}
-                conflict={selected}
-                onResolve={(content) => resolveConflictFile(selected.path, content)}
-              />
-            )
-          ) : (
+          {!selected ? (
             <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
               Select a file to resolve
+            </div>
+          ) : selected.is_binary ? (
+            <div className="flex items-center justify-center h-full text-sm text-muted-foreground p-6 text-center">
+              Binary file — accept one whole side from the list on the left.
+            </div>
+          ) : (
+            <div className="flex flex-col h-full">
+              <div className="h-8 border-b flex items-center gap-1 px-2 shrink-0 bg-muted/40">
+                {(
+                  [
+                    ["regions", "By region"],
+                    ["editor", "Edit merged file"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <Button
+                    key={value}
+                    variant={mode === value ? "secondary" : "ghost"}
+                    size="sm"
+                    className="h-6 text-[11px]"
+                    onClick={() => setMode(value)}
+                    disabled={
+                      value === "regions" &&
+                      !parseConflictRegions(selected.merged_content ?? "")
+                    }
+                  >
+                    {label}
+                  </Button>
+                ))}
+                <span className="flex-1" />
+                <span className="text-[10px] text-muted-foreground font-mono truncate">
+                  {selected.path}
+                </span>
+              </div>
+
+              <div className="flex-1 min-h-0">
+                {mode === "regions" ? (
+                  <ConflictRegions
+                    key={selected.path}
+                    merged={selected.merged_content ?? ""}
+                    onResolve={(choices) =>
+                      void resolveConflictHunks(selected.path, choices)
+                    }
+                  />
+                ) : (
+                  <ThreePaneMerge
+                    key={selected.path}
+                    conflict={selected}
+                    onResolve={(content) =>
+                      resolveConflictFile(selected.path, content)
+                    }
+                  />
+                )}
+              </div>
             </div>
           )}
         </ResizablePanel>
@@ -170,10 +240,6 @@ export function MergeToolView() {
     </div>
   );
 }
-
-
-
-
 
 function ThreePaneMerge({
   conflict,
@@ -184,21 +250,19 @@ function ThreePaneMerge({
 }) {
   const currentLines = useMemo(
     () => (conflict.current_content ?? "").split("\n"),
-    [conflict.current_content]
+    [conflict.current_content],
   );
   const incomingLines = useMemo(
     () => (conflict.incoming_content ?? "").split("\n"),
-    [conflict.incoming_content]
+    [conflict.incoming_content],
   );
 
-  
   const [resultContent, setResultContent] = useState(
-    () => conflict.current_content ?? ""
+    () => conflict.current_content ?? "",
   );
   const resultLines = useMemo(() => resultContent.split("\n"), [resultContent]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  
   const currentRef = useRef<HTMLDivElement>(null);
   const incomingRef = useRef<HTMLDivElement>(null);
   const resultScrollRef = useRef<HTMLDivElement>(null);
@@ -212,7 +276,6 @@ function ThreePaneMerge({
 
   return (
     <div className="flex flex-col h-full">
-      
       <div className="grid grid-cols-3 border-b shrink-0">
         <div className="h-8 flex items-center px-3 gap-1.5 bg-blue-500/10 border-r">
           <span className="text-xs font-semibold text-blue-400 uppercase tracking-wider">
@@ -256,19 +319,15 @@ function ThreePaneMerge({
         </div>
       </div>
 
-      
       <div className="flex-1 grid grid-cols-3 min-h-0 overflow-hidden">
-        
         <div className="border-r overflow-auto" ref={currentRef}>
           <ReadOnlyCodePane lines={currentLines} highlightColor="blue" />
         </div>
 
-        
         <div className="border-r overflow-auto" ref={incomingRef}>
           <ReadOnlyCodePane lines={incomingLines} highlightColor="orange" />
         </div>
 
-        
         <div className="overflow-auto relative" ref={resultScrollRef}>
           <textarea
             ref={textareaRef}
@@ -279,11 +338,11 @@ function ThreePaneMerge({
               "w-full h-full min-h-full resize-none bg-transparent",
               "font-mono text-[11px] leading-[18px] text-foreground",
               "p-0 pl-12 py-0 border-0 outline-none focus:ring-0",
-              "whitespace-pre overflow-auto"
+              "whitespace-pre overflow-auto",
             )}
             style={{ tabSize: 4 }}
           />
-          
+
           <div className="absolute left-0 top-0 w-10 pointer-events-none select-none">
             {resultLines.map((_, i) => (
               <div

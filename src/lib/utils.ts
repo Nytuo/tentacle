@@ -18,9 +18,16 @@ export function formatTimestamp(seconds: number): string {
   if (hours < 24) return `${hours}h ago`;
   if (days < 7) return `${days}d ago`;
   if (days < 365) {
-    return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    return date.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+    });
   }
-  return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  return date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 export function formatFullDate(seconds: number): string {
@@ -67,12 +74,19 @@ export function statusColor(status: string): string {
 
 export function statusIcon(status: string): string {
   switch (status) {
-    case "added": return "A";
-    case "deleted": return "D";
-    case "modified": return "M";
-    case "renamed": return "R";
-    case "untracked": return "U";
-    case "conflicted": return "C";
-    default: return "?";
+    case "added":
+      return "A";
+    case "deleted":
+      return "D";
+    case "modified":
+      return "M";
+    case "renamed":
+      return "R";
+    case "untracked":
+      return "U";
+    case "conflicted":
+      return "C";
+    default:
+      return "?";
   }
 }

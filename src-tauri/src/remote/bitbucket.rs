@@ -1,10 +1,13 @@
-use serde::Deserialize;
+use crate::remote::{CreatePrRequest, PullRequest, RepoRemoteInfo};
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
-use crate::remote::{PullRequest, RepoRemoteInfo, CreatePrRequest};
+use serde::Deserialize;
 
 fn bitbucket_headers(token: &str) -> HeaderMap {
     let mut headers = HeaderMap::new();
-    headers.insert(AUTHORIZATION, HeaderValue::from_str(&format!("Bearer {}", token)).unwrap());
+    headers.insert(
+        AUTHORIZATION,
+        HeaderValue::from_str(&format!("Bearer {}", token)).unwrap(),
+    );
     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
     headers
 }
@@ -84,11 +87,18 @@ struct BbPrLinks {
 }
 
 #[tauri::command]
-pub async fn bitbucket_get_repo(workspace: String, repo_slug: String, token: String) -> Result<RepoRemoteInfo, String> {
+pub async fn bitbucket_get_repo(
+    workspace: String,
+    repo_slug: String,
+    token: String,
+) -> Result<RepoRemoteInfo, String> {
     let client = reqwest::Client::new();
 
     let resp = client
-        .get(format!("{}/repositories/{}/{}", BB_API, workspace, repo_slug))
+        .get(format!(
+            "{}/repositories/{}/{}",
+            BB_API, workspace, repo_slug
+        ))
         .headers(bitbucket_headers(&token))
         .send()
         .await
@@ -100,18 +110,27 @@ pub async fn bitbucket_get_repo(workspace: String, repo_slug: String, token: Str
 
     let repo: BbRepo = resp.json().await.map_err(|e| e.to_string())?;
 
-    let clone_url = repo.links.clone.iter()
+    let clone_url = repo
+        .links
+        .clone
+        .iter()
         .find(|c| c.name == "https")
         .map(|c| c.href.clone())
         .unwrap_or_default();
-    let ssh_url = repo.links.clone.iter()
+    let ssh_url = repo
+        .links
+        .clone
+        .iter()
         .find(|c| c.name == "ssh")
         .map(|c| c.href.clone());
 
     Ok(RepoRemoteInfo {
         full_name: repo.full_name,
         description: repo.description,
-        default_branch: repo.mainbranch.map(|b| b.name).unwrap_or_else(|| "main".to_string()),
+        default_branch: repo
+            .mainbranch
+            .map(|b| b.name)
+            .unwrap_or_else(|| "main".to_string()),
         stars: 0,
         forks: 0,
         open_issues: 0,
@@ -124,12 +143,20 @@ pub async fn bitbucket_get_repo(workspace: String, repo_slug: String, token: Str
 }
 
 #[tauri::command]
-pub async fn bitbucket_list_prs(workspace: String, repo_slug: String, state: Option<String>, token: String) -> Result<Vec<PullRequest>, String> {
+pub async fn bitbucket_list_prs(
+    workspace: String,
+    repo_slug: String,
+    state: Option<String>,
+    token: String,
+) -> Result<Vec<PullRequest>, String> {
     let client = reqwest::Client::new();
     let state_param = state.unwrap_or_else(|| "OPEN".to_string());
 
     let resp = client
-        .get(format!("{}/repositories/{}/{}/pullrequests?state={}&pagelen=50", BB_API, workspace, repo_slug, state_param))
+        .get(format!(
+            "{}/repositories/{}/{}/pullrequests?state={}&pagelen=50",
+            BB_API, workspace, repo_slug, state_param
+        ))
         .headers(bitbucket_headers(&token))
         .send()
         .await
@@ -141,29 +168,43 @@ pub async fn bitbucket_list_prs(workspace: String, repo_slug: String, state: Opt
 
     let pr_list: BbPrList = resp.json().await.map_err(|e| e.to_string())?;
 
-    Ok(pr_list.values.into_iter().map(|pr| PullRequest {
-        id: pr.id,
-        number: pr.id,
-        title: pr.title,
-        body: pr.description,
-        state: pr.state.to_lowercase(),
-        author: pr.author.display_name,
-        source_branch: pr.source.branch.name,
-        target_branch: pr.destination.branch.name,
-        created_at: pr.created_on,
-        updated_at: pr.updated_on,
-        url: pr.links.html.href,
-        mergeable: None,
-        draft: false,
-        labels: vec![],
-        reviewers: pr.reviewers.unwrap_or_default().into_iter().map(|r| r.display_name).collect(),
-        comments_count: pr.comment_count.unwrap_or(0),
-        provider: "bitbucket".to_string(),
-    }).collect())
+    Ok(pr_list
+        .values
+        .into_iter()
+        .map(|pr| PullRequest {
+            id: pr.id,
+            number: pr.id,
+            title: pr.title,
+            body: pr.description,
+            state: pr.state.to_lowercase(),
+            author: pr.author.display_name,
+            source_branch: pr.source.branch.name,
+            target_branch: pr.destination.branch.name,
+            created_at: pr.created_on,
+            updated_at: pr.updated_on,
+            url: pr.links.html.href,
+            mergeable: None,
+            draft: false,
+            labels: vec![],
+            reviewers: pr
+                .reviewers
+                .unwrap_or_default()
+                .into_iter()
+                .map(|r| r.display_name)
+                .collect(),
+            comments_count: pr.comment_count.unwrap_or(0),
+            provider: "bitbucket".to_string(),
+        })
+        .collect())
 }
 
 #[tauri::command]
-pub async fn bitbucket_create_pr(workspace: String, repo_slug: String, pr: CreatePrRequest, token: String) -> Result<PullRequest, String> {
+pub async fn bitbucket_create_pr(
+    workspace: String,
+    repo_slug: String,
+    pr: CreatePrRequest,
+    token: String,
+) -> Result<PullRequest, String> {
     let client = reqwest::Client::new();
 
     let body = serde_json::json!({
@@ -175,7 +216,10 @@ pub async fn bitbucket_create_pr(workspace: String, repo_slug: String, pr: Creat
     });
 
     let resp = client
-        .post(format!("{}/repositories/{}/{}/pullrequests", BB_API, workspace, repo_slug))
+        .post(format!(
+            "{}/repositories/{}/{}/pullrequests",
+            BB_API, workspace, repo_slug
+        ))
         .headers(bitbucket_headers(&token))
         .json(&body)
         .send()
@@ -204,18 +248,31 @@ pub async fn bitbucket_create_pr(workspace: String, repo_slug: String, pr: Creat
         mergeable: None,
         draft: false,
         labels: vec![],
-        reviewers: pr_resp.reviewers.unwrap_or_default().into_iter().map(|r| r.display_name).collect(),
+        reviewers: pr_resp
+            .reviewers
+            .unwrap_or_default()
+            .into_iter()
+            .map(|r| r.display_name)
+            .collect(),
         comments_count: pr_resp.comment_count.unwrap_or(0),
         provider: "bitbucket".to_string(),
     })
 }
 
 #[tauri::command]
-pub async fn bitbucket_merge_pr(workspace: String, repo_slug: String, pr_id: u64, token: String) -> Result<String, String> {
+pub async fn bitbucket_merge_pr(
+    workspace: String,
+    repo_slug: String,
+    pr_id: u64,
+    token: String,
+) -> Result<String, String> {
     let client = reqwest::Client::new();
 
     let resp = client
-        .post(format!("{}/repositories/{}/{}/pullrequests/{}/merge", BB_API, workspace, repo_slug, pr_id))
+        .post(format!(
+            "{}/repositories/{}/{}/pullrequests/{}/merge",
+            BB_API, workspace, repo_slug, pr_id
+        ))
         .headers(bitbucket_headers(&token))
         .send()
         .await

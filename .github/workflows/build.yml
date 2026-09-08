@@ -1,4 +1,4 @@
-name: 'publish'
+name: "publish"
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
         description: 'Platform to build for (choose a single target or "all")'
         required: false
         type: choice
-        default: 'all'
+        default: "all"
         options:
           - all
           - macos-aarch64
@@ -17,7 +17,7 @@ on:
           - windows
   push:
     branches:
-      - master
+      - main
 
 jobs:
   setup:
@@ -53,8 +53,6 @@ jobs:
 
     runs-on: ${{ matrix.runs_on }}
     steps:
-
-
       - uses: actions/checkout@v4
 
       - name: install dependencies (ubuntu only)
@@ -115,7 +113,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
-          cache: 'npm'
+          cache: "npm"
 
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -125,13 +123,10 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: './src-tauri -> target'
-
-
+          workspaces: "./src-tauri -> target"
 
       - name: Install JS dependencies
         run: npm ci
-
 
       - name: Build Vite frontend
         run: npm run build
@@ -141,8 +136,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: tentacle-v__VERSION__
-          releaseName: 'Tentacle v__VERSION__'
-          releaseBody: 'Tentacle release v__VERSION__'
+          releaseName: "Tentacle v__VERSION__"
+          releaseBody: "Tentacle release v__VERSION__"
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}

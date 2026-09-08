@@ -4,13 +4,28 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
-import { Globe, Plus, Trash2, Link, ArrowDownToLine, ArrowUpFromLine, RotateCcw } from "lucide-react";
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Globe,
+  Link,
+  Plus,
+  RotateCcw,
+  Trash2,
+} from "lucide-react";
 import * as api from "@/lib/api";
+import { confirmThat } from "@/components/ui/prompt-dialog";
 
 export function RemotesView() {
-  const { tab, fetchRemote, pushRemote, pullRemote, refreshAll, setError } = useGit();
+  const { tab, fetchRemote, pushRemote, pullRemote, refreshAll, setError } =
+    useGit();
   const [addOpen, setAddOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newUrl, setNewUrl] = useState("");
@@ -25,20 +40,29 @@ export function RemotesView() {
       setAddOpen(false);
       setNewName("");
       setNewUrl("");
-    } catch (e) { setError(String(e)); }
+    } catch (e) {
+      setError(String(e));
+    }
   };
 
   const handleRemoveRemote = async (name: string) => {
-    if (!confirm(`Remove remote "${name}"?`)) return;
+    const ok = await confirmThat({
+      title: `Remove remote ${name}?`,
+      description: "Local branches and commits are untouched.",
+      confirmLabel: "Remove",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await api.removeRemote(name);
       await refreshAll();
-    } catch (e) { setError(String(e)); }
+    } catch (e) {
+      setError(String(e));
+    }
   };
 
   return (
     <div className="flex flex-col h-full">
-      
       <div className="px-2.5 py-2 border-b flex items-center gap-2 shrink-0">
         <h2 className="font-semibold text-sm flex-1">Remotes</h2>
         <Dialog open={addOpen} onOpenChange={setAddOpen}>
@@ -52,11 +76,26 @@ export function RemotesView() {
               <DialogTitle>Add Remote</DialogTitle>
             </DialogHeader>
             <div className="space-y-3">
-              <Input placeholder="Remote name (e.g. origin)" value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus />
-              <Input placeholder="Remote URL" value={newUrl} onChange={(e) => setNewUrl(e.target.value)} />
+              <Input
+                placeholder="Remote name (e.g. origin)"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                autoFocus
+              />
+              <Input
+                placeholder="Remote URL"
+                value={newUrl}
+                onChange={(e) => setNewUrl(e.target.value)}
+              />
             </div>
             <DialogFooter>
-              <Button onClick={handleAddRemote} disabled={!newName || !newUrl} size="sm">Add</Button>
+              <Button
+                onClick={handleAddRemote}
+                disabled={!newName || !newUrl}
+                size="sm"
+              >
+                Add
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -81,17 +120,34 @@ export function RemotesView() {
             {remote.push_url && remote.push_url !== remote.url && (
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2.5">
                 <Link className="h-3.5 w-3.5 shrink-0" />
-                <span className="font-mono truncate">Push: {remote.push_url}</span>
+                <span className="font-mono truncate">
+                  Push: {remote.push_url}
+                </span>
               </div>
             )}
             <div className="flex gap-1.5">
-              <Button variant="outline" size="sm" onClick={() => fetchRemote(remote.name)} className="gap-1.5 h-7 text-xs px-2.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fetchRemote(remote.name)}
+                className="gap-1.5 h-7 text-xs px-2.5"
+              >
                 <ArrowDownToLine className="h-3.5 w-3.5" /> Fetch
               </Button>
-              <Button variant="outline" size="sm" onClick={() => pullRemote(remote.name)} className="gap-1.5 h-7 text-xs px-2.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => pullRemote(remote.name)}
+                className="gap-1.5 h-7 text-xs px-2.5"
+              >
                 <RotateCcw className="h-3.5 w-3.5" /> Pull
               </Button>
-              <Button variant="outline" size="sm" onClick={() => pushRemote(remote.name)} className="gap-1.5 h-7 text-xs px-2.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => pushRemote({ remoteName: remote.name })}
+                className="gap-1.5 h-7 text-xs px-2.5"
+              >
                 <ArrowUpFromLine className="h-3.5 w-3.5" /> Push
               </Button>
               <div className="flex-1" />
