@@ -1,3 +1,5 @@
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { useRepoSettings, useActiveWorkspace } from "@/stores/app-store";
 import { useEffect, useState } from "react";
 import { useGit } from "@/hooks/use-git";
 import { Button } from "@/components/ui/button";
@@ -30,6 +32,23 @@ import type { CreatePrRequest, PullRequest } from "@/lib/api";
 
 export function PrView() {
   const { state, tab, dispatch, setError } = useGit();
+  const provider = useRepoSettings();
+  const workspace = useActiveWorkspace();
+  const [tokenSaved, setTokenSaved] = useState(false);
+  useEffect(() => {
+    if (!provider.providerType) {
+      setTokenSaved(false);
+      return;
+    }
+    let cancelled = false;
+    api
+      .secretHas(api.providerTokenKey(provider.providerType))
+      .then(v => !cancelled && setTokenSaved(v))
+      .catch(() => !cancelled && setTokenSaved(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [provider.providerType]);
   const [prState, setPrState] = useState("open");
   const [loading, setLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -43,7 +62,7 @@ export function PrView() {
   const [generatingDesc, setGeneratingDesc] = useState(false);
 
   const withToken = async (): Promise<string | null> => {
-    if (!state.providerType) return null;
+    if (!provider.providerType) return null;
     if (!state.allowNetwork) {
       setError(
         "Provider requests are turned off. Enable them in Settings → Privacy.",
@@ -51,7 +70,7 @@ export function PrView() {
       return null;
     }
     const token = await api
-      .secretGet(api.providerTokenKey(state.providerType))
+      .secretGet(api.providerTokenKey(provider.providerType))
       .catch(() => null);
     if (!token) {
       setError(
@@ -64,8 +83,8 @@ export function PrView() {
 
   const loadPrs = async () => {
     if (
-      !state.providerType ||
-      !state.providerTokenSaved ||
+      !provider.providerType ||
+      !tokenSaved ||
       !state.allowNetwork
     ) {
       return;
@@ -73,30 +92,30 @@ export function PrView() {
     setLoading(true);
     try {
       const token = await api.secretGet(
-        api.providerTokenKey(state.providerType),
+        api.providerTokenKey(provider.providerType),
       );
       if (!token) return;
       let prs: PullRequest[] = [];
-      if (state.providerType === "github") {
+      if (provider.providerType === "github") {
         prs = await api.githubListPrs(
-          state.providerOwner,
-          state.providerRepo,
+          provider.providerOwner,
+          provider.providerRepo,
           prState,
           token,
         );
-      } else if (state.providerType === "gitlab") {
+      } else if (provider.providerType === "gitlab") {
         const glState = prState === "open" ? "opened" : prState;
         prs = await api.gitlabListMrs(
-          state.gitlabBaseUrl,
-          `${state.providerOwner}/${state.providerRepo}`,
+          provider.gitlabBaseUrl,
+          `${provider.providerOwner}/${provider.providerRepo}`,
           glState,
           token,
         );
-      } else if (state.providerType === "bitbucket") {
+      } else if (provider.providerType === "bitbucket") {
         const bbState = prState.toUpperCase();
         prs = await api.bitbucketListPrs(
-          state.providerOwner,
-          state.providerRepo,
+          provider.providerOwner,
+          provider.providerRepo,
           bbState,
           token,
         );
@@ -113,8 +132,8 @@ export function PrView() {
     loadPrs();
   }, [
     prState,
-    state.providerType,
-    state.providerTokenSaved,
+    provider.providerType,
+    tokenSaved,
     state.allowNetwork,
   ]);
 
@@ -123,24 +142,24 @@ export function PrView() {
     const token = await withToken();
     if (!token) return;
     try {
-      if (state.providerType === "github") {
+      if (provider.providerType === "github") {
         await api.githubCreatePr(
-          state.providerOwner,
-          state.providerRepo,
+          provider.providerOwner,
+          provider.providerRepo,
           newPr,
           token,
         );
-      } else if (state.providerType === "gitlab") {
+      } else if (provider.providerType === "gitlab") {
         await api.gitlabCreateMr(
-          state.gitlabBaseUrl,
-          `${state.providerOwner}/${state.providerRepo}`,
+          provider.gitlabBaseUrl,
+          `${provider.providerOwner}/${provider.providerRepo}`,
           newPr,
           token,
         );
-      } else if (state.providerType === "bitbucket") {
+      } else if (provider.providerType === "bitbucket") {
         await api.bitbucketCreatePr(
-          state.providerOwner,
-          state.providerRepo,
+          provider.providerOwner,
+          provider.providerRepo,
           newPr,
           token,
         );
@@ -169,25 +188,25 @@ export function PrView() {
     const token = await withToken();
     if (!token) return;
     try {
-      if (state.providerType === "github") {
+      if (provider.providerType === "github") {
         await api.githubMergePr(
-          state.providerOwner,
-          state.providerRepo,
+          provider.providerOwner,
+          provider.providerRepo,
           pr.number,
           undefined,
           token,
         );
-      } else if (state.providerType === "gitlab") {
+      } else if (provider.providerType === "gitlab") {
         await api.gitlabMergeMr(
-          state.gitlabBaseUrl,
-          `${state.providerOwner}/${state.providerRepo}`,
+          provider.gitlabBaseUrl,
+          `${provider.providerOwner}/${provider.providerRepo}`,
           pr.number,
           token,
         );
-      } else if (state.providerType === "bitbucket") {
+      } else if (provider.providerType === "bitbucket") {
         await api.bitbucketMergePr(
-          state.providerOwner,
-          state.providerRepo,
+          provider.providerOwner,
+          provider.providerRepo,
           pr.number,
           token,
         );
@@ -209,7 +228,7 @@ export function PrView() {
             .join(""),
         )
         .join("\n");
-      const desc = await api.aiGeneratePrDescription(diffText, newPr.title);
+      const desc = await api.aiGeneratePrDescription(workspace.ai, diffText, newPr.title);
       setNewPr({ ...newPr, body: desc });
     } catch {
     } finally {
@@ -217,21 +236,21 @@ export function PrView() {
     }
   };
 
-  if (!state.providerType || !state.providerTokenSaved || !state.allowNetwork) {
+  if (!provider.providerType || !tokenSaved || !state.allowNetwork) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center space-y-3 max-w-sm px-4">
           <GitPullRequest className="h-10 w-10 text-muted-foreground mx-auto opacity-40" />
           <h3 className="font-semibold text-sm">
-            {state.providerType &&
-            state.providerTokenSaved &&
+            {provider.providerType &&
+            tokenSaved &&
             !state.allowNetwork
               ? "Provider requests are turned off"
               : "Configure a remote provider"}
           </h3>
           <p className="text-xs text-muted-foreground">
-            {state.providerType &&
-            state.providerTokenSaved &&
+            {provider.providerType &&
+            tokenSaved &&
             !state.allowNetwork
               ? "Tentacle will not contact a provider API until you allow it in Settings → Privacy."
               : "Add your GitHub, GitLab or Bitbucket details in Settings to manage pull requests."}
@@ -446,7 +465,7 @@ export function PrView() {
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7"
-                  onClick={() => window.open(pr.url, "_blank")}
+                  onClick={() => void openUrl(pr.url)}
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
                 </Button>

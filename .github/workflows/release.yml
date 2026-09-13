@@ -74,10 +74,7 @@ jobs:
 
           # Baseline = the most recently created release tag, accepting every
           # scheme this repo has used (1.2.3, v1.2.3, app-v1.2.3) so a rename
-          # never makes the next version go backwards. Sorting by date rather
-          # than by version matters for repos that switched schemes: an
-          # abandoned CalVer tag must not outrank the current 4.x line.
-          # Prerelease/test tags are excluded by the anchored pattern.
+          # never makes the next version go backwards.
           # New tags are always emitted as plain v<semver>.
           PREV=$(git tag --list --sort=-creatordate \
             | grep -E '^([A-Za-z][A-Za-z0-9_.-]*-)?v?[0-9]+\.[0-9]+\.[0-9]+$' \
@@ -310,9 +307,6 @@ jobs:
       - name: Build Vite frontend
         run: npm run build
 
-      # Runs after the dependency install so the lockfile is never left out of
-      # sync with package.json. The edits live only in the runner workspace —
-      # they are never committed back to the repo.
       - name: Apply release version
         shell: bash
         env:

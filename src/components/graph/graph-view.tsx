@@ -657,7 +657,6 @@ export function CommitDetailPanel({ onClose }: { onClose: () => void }) {
       <ScrollArea className="flex-1">
         <div className="py-px">
           {viewMode === "path" ? (
-            /* ── Flat path list ── */
             diff.map((file, idx) => {
               const path = file.new_path || file.old_path || "unknown";
               const fileName = path.split("/").pop() || path;
@@ -716,7 +715,6 @@ export function CommitDetailPanel({ onClose }: { onClose: () => void }) {
               );
             })
           ) : (
-            /* ── Full diff tree ── */
             <DiffTreeNodes
               nodes={buildDiffTree(diff)}
               depth={0}
@@ -904,9 +902,22 @@ export function GraphView() {
     return () => observer.disconnect();
   }, []);
 
+  const latestTop = useRef(0);
+  const frame = useRef<number | null>(null);
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    setScrollTop(e.currentTarget.scrollTop);
+    latestTop.current = e.currentTarget.scrollTop;
+    if (frame.current !== null) return;
+    frame.current = requestAnimationFrame(() => {
+      frame.current = null;
+      setScrollTop(Math.floor(latestTop.current / ROW_HEIGHT) * ROW_HEIGHT);
+    });
   }, []);
+  useEffect(
+    () => () => {
+      if (frame.current !== null) cancelAnimationFrame(frame.current);
+    },
+    [],
+  );
 
   const filtering = Boolean(
     tab?.graphQuery.text || tab?.graphQuery.path || tab?.graphQuery.author,
@@ -970,9 +981,8 @@ export function GraphView() {
   return (
     <ResizablePanelGroup
       direction="horizontal"
-      key={hasSelection ? "with-detail" : "no-detail"}
     >
-      <ResizablePanel minSize="400px">
+      <ResizablePanel id="graph" minSize="400px">
         <div className="flex flex-col h-full">
           <GraphSearch />
 
@@ -1082,10 +1092,13 @@ export function GraphView() {
           >
             <div className="relative" style={{ height: totalHeight }}>
               <div className="relative">
-                {graph.nodes.map((node, idx) => (
+                {graph.nodes.slice(startRow, endRow).map((node, vi) => {
+                  const idx = startRow + vi;
+                  return (
                   <ContextMenu key={node.oid}>
                     <ContextMenuTrigger asChild>
                       <div
+                        data-graph-row
                         draggable={node.oid !== "WIP"}
                         onDragStart={(e) => {
                           e.dataTransfer.setData(
@@ -1354,7 +1367,8 @@ export function GraphView() {
                       </ContextMenuSub>
                     </ContextMenuContent>
                   </ContextMenu>
-                ))}
+                );
+                })}
               </div>
 
               <div
@@ -1392,7 +1406,7 @@ export function GraphView() {
       {hasSelection && (
         <>
           <ResizableHandle />
-          <ResizablePanel defaultSize="420px" minSize="280px" maxSize="700px">
+          <ResizablePanel id="commit-detail" defaultSize="420px" minSize="280px" maxSize="700px">
             <CommitDetailPanel onClose={() => selectCommit(null)} />
           </ResizablePanel>
         </>

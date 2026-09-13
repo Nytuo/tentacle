@@ -6,6 +6,7 @@ pub mod credentials;
 pub mod diff;
 pub mod graph;
 pub mod hunks;
+pub mod identity;
 pub mod ignore;
 pub mod reflog;
 pub mod repo;
@@ -107,5 +108,5 @@ where
 }
 
 pub fn git_err(e: git2::Error) -> String {
-    e.message().to_string()
+    credentials::redact_credentials(e.message())
 }

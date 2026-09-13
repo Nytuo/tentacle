@@ -1,12 +1,10 @@
 name: publish-homebrew
 
 # Updates this app's cask in the Nytuo/homebrew-apps tap whenever a GitHub
-# Release is published. Releases are created as drafts by release.yml, so this
-# fires at the moment you publish the draft — never on a draft itself.
+# Release is published.
 #
 # Requires the HOMEBREW_TAP_TOKEN repo secret (a PAT with `repo` scope on
-# Nytuo/homebrew-apps). Without it the job no-ops with a notice instead of
-# failing, so the workflow is inert until you add one.
+# Nytuo/homebrew-apps).
 
 on:
   release:
@@ -18,7 +16,6 @@ on:
         required: false
         type: string
 
-# Per-app configuration. Everything below this block is identical in every repo.
 env:
   CASK: tentacle
   ARM_ASSET: 'Tentacle_{VERSION}_aarch64.dmg'

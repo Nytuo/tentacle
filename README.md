@@ -53,13 +53,29 @@ in the depths where Cthulhu dwells.
 
 - **Worktrees, submodules and Git LFS** detection
 
-- **Multi-repository support** — every tab is its own repository, isolated end
-  to end
+- **Workspaces** — named sets of repositories you switch between from the title
+  bar, each with its own AI settings
+
+- **Settings in three scopes** — application (theme, privacy, tokens), workspace
+  (repositories, AI) and repository (forge, commit identity). The forge, owner
+  and repository are read from `origin` automatically
 
 - **Privacy-first:**
-  - No telemetry, no tracking, no ads, no cloud sync
-  - Tokens live in your OS keychain, never in a settings file
+  - No telemetry, no tracking, no ads, no cloud sync, no update checks
+  - Tokens live in your OS keychain, never in a settings file. A token left in
+    plain text by an early version is moved to the keychain and scrubbed from
+    disk on first launch
   - Outbound provider requests are off until you turn them on
+  - AI is local by default. A remote AI endpoint is refused unless that
+    workspace explicitly allows it, and local AI calls bypass any proxy
+  - The UI runs under a strict Content Security Policy: it can talk only to the
+    Rust side, so nothing rendered in the app can reach the network on its own
+  - Only the Tauri permissions the UI uses are granted; links open in your
+    browser, over https only
+  - Credentials embedded in remote URLs are masked in every error and on screen
+  - Per-repository commit identity, so a personal email doesn't end up in a
+    public repository
+  - An optional mode that never writes repository paths to disk
   - Settings are one JSON file you can inspect or erase from inside the app
 
 - **Keyboard shortcuts** and a ⌘K command palette

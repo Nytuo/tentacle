@@ -101,6 +101,7 @@ export interface DiffFile {
   binary: boolean;
   additions: number;
   deletions: number;
+  hunks_loaded?: boolean;
 }
 
 export interface DiffHunk {
@@ -413,6 +414,9 @@ export const getWorkingDiff = () => invoke<DiffFile[]>("get_working_diff");
 export const getStagedDiff = () => invoke<DiffFile[]>("get_staged_diff");
 export const getCommitDiff = (oid: string) =>
   invoke<DiffFile[]>("get_commit_diff", { oid });
+export const getCommitFiles = (oid: string) => invoke<DiffFile[]>("get_commit_files", { oid });
+export const getCommitFileDiff = (oid: string, filePath: string, oldPath?: string | null) =>
+  invoke<DiffFile>("get_commit_file_diff", { oid, filePath, oldPath: oldPath ?? null });
 export const getRangeDiff = (from: string, to: string) =>
   invoke<DiffFile[]>("get_range_diff", { from, to });
 export const getConflictFiles = () => invoke<string[]>("get_conflict_files");
@@ -726,12 +730,46 @@ export const bitbucketMergePr = (
     token,
   });
 
-export const aiCheckOllama = () => invokeGlobal<boolean>("ai_check_ollama");
-export const aiListModels = () => invokeGlobal<OllamaModel[]>("ai_list_models");
-export const aiGenerateCommitMessage = (diff: string, model?: string) =>
-  invokeGlobal<string>("ai_generate_commit_message", { diff, model });
-export const aiGeneratePrDescription = (
-  diff: string,
-  title: string,
-  model?: string,
-) => invokeGlobal<string>("ai_generate_pr_description", { diff, title, model });
+export interface AiConfig {
+  endpoint: string;
+  model: string;
+  allowRemote: boolean;
+}
+
+const aiTarget = (ai: AiConfig) => ({
+  endpoint: ai.endpoint.trim() || null,
+  allowRemote: ai.allowRemote,
+});
+
+export const aiCheckOllama = (ai: AiConfig) =>
+  invokeGlobal<boolean>("ai_check_ollama", aiTarget(ai));
+export const aiListModels = (ai: AiConfig) =>
+  invokeGlobal<OllamaModel[]>("ai_list_models", aiTarget(ai));
+export const aiGenerateCommitMessage = (ai: AiConfig, diff: string) =>
+  invokeGlobal<string>("ai_generate_commit_message", {
+    diff,
+    model: ai.model || null,
+    ...aiTarget(ai),
+  });
+export const aiGeneratePrDescription = (ai: AiConfig, diff: string, title: string) =>
+  invokeGlobal<string>("ai_generate_pr_description", {
+    diff,
+    title,
+    model: ai.model || null,
+    ...aiTarget(ai),
+  });
+
+
+export interface IdentityField {
+  value: string | null;
+  scope: "repository" | "global" | "unset";
+}
+
+export interface Identity {
+  name: IdentityField;
+  email: IdentityField;
+}
+
+export const getIdentity = () => invoke<Identity>("get_identity");
+export const setIdentity = (name: string | null, email: string | null) =>
+  invoke<Identity>("set_identity", { name, email });

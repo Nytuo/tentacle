@@ -18,9 +18,11 @@ import { WorktreesView } from "@/components/worktrees/worktrees-view";
 import { IgnoreView } from "@/components/settings/ignore-view";
 import { CommandPalette } from "@/components/layout/command-palette";
 import { TransferBar } from "@/components/layout/transfer-bar";
+import { WorkspaceSwitcher } from "@/components/layout/workspace-switcher";
 import { useShortcuts } from "@/hooks/use-shortcuts";
 import { useRepoWatcher } from "@/hooks/use-repo-watcher";
 import { DiffViewer } from "@/components/diff/diff-viewer";
+import { LazyFileDiff } from "@/components/diff/lazy-file-diff";
 import { CommitDetailPanel } from "@/components/graph/graph-view";
 import {
   ResizableHandle,
@@ -28,7 +30,7 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, GitBranch, Moon, Plus, Sun, X } from "lucide-react";
+import { ArrowLeft, GitBranch, Moon, Plus, Settings as SettingsIcon, Sun, X } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -121,14 +123,6 @@ export function AppLayout() {
     return null;
   }
 
-  if (state.tabs.length === 0) {
-    return (
-      <TooltipProvider>
-        <WelcomeScreen />
-      </TooltipProvider>
-    );
-  }
-
   const activeView = tab?.activeView ?? "graph";
 
   function renderView() {
@@ -156,7 +150,11 @@ export function AppLayout() {
                 </span>
               </div>
               <div className="flex-1 overflow-auto">
-                <DiffViewer files={[tab.viewingDiffFile]} />
+                {tab.selectedCommitOid ? (
+                  <LazyFileDiff oid={tab.selectedCommitOid} file={tab.viewingDiffFile} />
+                ) : (
+                  <DiffViewer files={[tab.viewingDiffFile]} />
+                )}
               </div>
             </div>
           </ResizablePanel>
@@ -224,6 +222,8 @@ export function AppLayout() {
             </span>
           </div>
 
+          <WorkspaceSwitcher />
+
           <div className="flex items-stretch overflow-x-auto flex-1 min-w-0">
             {state.tabs.map((t) => {
               const isActive = t.id === state.activeTabId;
@@ -287,6 +287,20 @@ export function AppLayout() {
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7"
+                  onClick={() => dispatch({ type: "OPEN_SETTINGS", payload: "app" })}
+                  aria-label="Settings"
+                >
+                  <SettingsIcon className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Settings</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
                   onClick={() =>
                     dispatch({
                       type: "SET_THEME",
@@ -328,9 +342,13 @@ export function AppLayout() {
           </div>
         </div>
 
-        {tab && <Toolbar />}
+        {tab && !state.settingsOpen && <Toolbar />}
 
-        {tab ? (
+        {state.settingsOpen ? (
+          <div className="flex-1 min-h-0 overflow-hidden bg-background">
+            <SettingsView />
+          </div>
+        ) : tab ? (
           <div className="flex flex-1 min-h-0 overflow-hidden">
             <div
               className="shrink-0 flex flex-col overflow-hidden border-r bg-card"
@@ -349,7 +367,9 @@ export function AppLayout() {
             </div>
           </div>
         ) : (
-          <WelcomeScreen />
+          <div className="flex-1 min-h-0 overflow-auto">
+            <WelcomeScreen />
+          </div>
         )}
 
         <TransferBar />

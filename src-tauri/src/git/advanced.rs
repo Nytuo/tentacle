@@ -754,8 +754,8 @@ pub fn get_remotes(
             if let Ok(remote) = repo.find_remote(name) {
                 remotes.push(RemoteInfo {
                     name: name.to_string(),
-                    url: remote.url().unwrap_or("").to_string(),
-                    push_url: remote.pushurl().map(|s| s.to_string()),
+                    url: credentials::redact_credentials(remote.url().unwrap_or("")),
+                    push_url: remote.pushurl().map(credentials::redact_credentials),
                 });
             }
         }

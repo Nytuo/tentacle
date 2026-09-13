@@ -1,480 +1,898 @@
-import { useEffect, useState } from "react";
-import { useGit } from "@/hooks/use-git";
+import { useCallback, useEffect, useState, type ComponentType, type ReactNode } from "react";
+import {
+  useApp, useActiveTab, useActiveWorkspace, useRepoSettings,
+  type AiSettings, type ProviderType, type RepoSettings, type SettingsSection,
+} from "@/stores/app-store";
+import { useWorkspaces } from "@/hooks/use-workspaces";
+import { errorText } from "@/hooks/use-git";
+import { SHORTCUTS } from "@/hooks/use-shortcuts";
+import { readStoredState, purgeStoredState } from "@/hooks/use-persistence";
+import { isLocalEndpoint, endpointHost } from "@/lib/endpoint";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { confirmThat } from "@/components/ui/prompt-dialog";
-import { purgeStoredState, readStoredState } from "@/hooks/use-persistence";
-import { errorText } from "@/hooks/use-git";
-import {
-  Bot,
-  CheckCircle,
-  Eye,
-  Globe,
-  HardDrive,
-  Key,
-  Lock,
-  Shield,
-  Trash2,
-  XCircle,
-} from "lucide-react";
+import { cn } from "@/lib/utils";
 import * as api from "@/lib/api";
+import {
+  Settings2, Layers, GitBranch, X, Globe, Bot, Shield, Lock, Key, Trash2, Eye,
+  Keyboard, Sun, Moon, User, AlertTriangle, CheckCircle, XCircle, Loader2, FolderOpen,
+} from "lucide-react";
 
-const PROVIDERS = ["github", "gitlab", "bitbucket"] as const;
+const PROVIDERS: ProviderType[] = ["github", "gitlab", "bitbucket"];
+const PROVIDER_LABEL: Record<ProviderType, string> = {
+  github: "GitHub",
+  gitlab: "GitLab",
+  bitbucket: "Bitbucket",
+};
+
+type Icon = ComponentType<{ className?: string }>;
+
+function Section({
+  title,
+  description,
+  icon: IconCmp,
+  children,
+}: {
+  title: string;
+  description?: string;
+  icon?: Icon;
+  children: ReactNode;
+}) {
+  return (
+    <section className="space-y-2.5">
+      <header className="space-y-0.5">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          {IconCmp && <IconCmp className="h-4 w-4 text-muted-foreground" />}
+          {title}
+        </h3>
+        {description && (
+          <p className="text-xs text-muted-foreground leading-relaxed">{description}</p>
+        )}
+      </header>
+      <div className="rounded-lg border divide-y">{children}</div>
+    </section>
+  );
+}
+
+function Row({
+  label,
+  description,
+  children,
+}: {
+  label: ReactNode;
+  description?: ReactNode;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-4 px-3 py-2.5">
+      <div className="flex-1 min-w-0">
+        <div className="text-xs font-medium">{label}</div>
+        {description && (
+          <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{description}</p>
+        )}
+      </div>
+      <div className="shrink-0 flex items-center gap-2">{children}</div>
+    </div>
+  );
+}
 
 export function SettingsView() {
-  const { state, dispatch, setError } = useGit();
-  const [ollamaAvailable, setOllamaAvailable] = useState<boolean | null>(null);
-  const [ollamaModels, setOllamaModels] = useState<api.OllamaModel[]>([]);
+  const { state, dispatch } = useApp();
+  const tab = useActiveTab();
+  const workspace = useActiveWorkspace();
+  const section: SettingsSection =
+    state.settingsSection === "repository" && !tab ? "workspace" : state.settingsSection;
 
-  const [tokenDraft, setTokenDraft] = useState("");
-  const [storedState, setStoredState] = useState<string | null>(null);
+  const nav: { id: SettingsSection; label: string; hint: string; icon: Icon; disabled: boolean }[] = [
+    { id: "app", label: "Application", hint: "Applies everywhere", icon: Settings2, disabled: false },
+    { id: "workspace", label: workspace.name, hint: "This workspace", icon: Layers, disabled: false },
+    {
+      id: "repository",
+      label: tab?.repo.name ?? "Repository",
+      hint: tab ? "This repository" : "Open a repository first",
+      icon: GitBranch,
+      disabled: !tab,
+    },
+  ];
 
-  useEffect(() => {
-    checkOllama();
-  }, []);
-
-  useEffect(() => {
-    setTokenDraft("");
-    if (!state.providerType) {
-      dispatch({ type: "SET_PROVIDER_TOKEN_SAVED", payload: false });
-      return;
-    }
-    api
-      .secretHas(api.providerTokenKey(state.providerType))
-      .then((saved) =>
-        dispatch({ type: "SET_PROVIDER_TOKEN_SAVED", payload: saved }),
-      )
-      .catch(() =>
-        dispatch({ type: "SET_PROVIDER_TOKEN_SAVED", payload: false }),
-      );
-  }, [dispatch, state.providerType]);
-
-  const saveToken = async () => {
-    if (!state.providerType || !tokenDraft.trim()) return;
-    try {
-      await api.secretSet(
-        api.providerTokenKey(state.providerType),
-        tokenDraft.trim(),
-      );
-      dispatch({ type: "SET_PROVIDER_TOKEN_SAVED", payload: true });
-      setTokenDraft("");
-    } catch (e) {
-      setError(errorText(e));
-    }
-  };
-
-  const clearToken = async () => {
-    if (!state.providerType) return;
-    try {
-      await api.secretDelete(api.providerTokenKey(state.providerType));
-      dispatch({ type: "SET_PROVIDER_TOKEN_SAVED", payload: false });
-      setTokenDraft("");
-    } catch (e) {
-      setError(errorText(e));
-    }
-  };
-
-  const checkOllama = async () => {
-    try {
-      const available = await api.aiCheckOllama();
-      setOllamaAvailable(available);
-      if (available) {
-        const models = await api.aiListModels();
-        setOllamaModels(models);
-      }
-    } catch {
-      setOllamaAvailable(false);
-    }
+  const titles: Record<SettingsSection, string> = {
+    app: "Application settings",
+    workspace: "Workspace settings",
+    repository: "Repository settings",
   };
 
   return (
-    <ScrollArea className="h-full">
-      <div className="max-w-xl mx-auto px-5 py-5 space-y-5">
-        <h1 className="text-base font-semibold">Settings</h1>
-
-        <Tabs defaultValue="provider">
-          <TabsList>
-            <TabsTrigger value="provider" className="gap-1.5 text-xs">
-              <Globe className="h-3.5 w-3.5" /> Provider
-            </TabsTrigger>
-            <TabsTrigger value="ai" className="gap-1.5 text-xs">
-              <Bot className="h-3.5 w-3.5" /> AI
-            </TabsTrigger>
-            <TabsTrigger value="privacy" className="gap-1.5 text-xs">
-              <Shield className="h-3.5 w-3.5" /> Privacy
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="provider" className="space-y-4 mt-4">
-            <div className="space-y-3">
-              <div>
-                <h3 className="text-sm font-medium">Remote Provider</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Configure your Git hosting provider for pull request
-                  management.
-                </p>
-              </div>
-
-              {!state.allowNetwork && (
-                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
-                  Outbound requests are turned off. Enable them under{" "}
-                  <span className="font-medium">Privacy</span> before Tentacle
-                  will contact a provider API.
-                </div>
+    <div className="flex h-full">
+      <nav className="w-56 shrink-0 border-r bg-card p-2 space-y-1">
+        <div className="px-2 py-2 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
+          Settings
+        </div>
+        {nav.map(item => {
+          const ItemIcon = item.icon;
+          return (
+            <button
+              key={item.id}
+              disabled={item.disabled}
+              onClick={() => dispatch({ type: "SET_SETTINGS_SECTION", payload: item.id })}
+              className={cn(
+                "w-full text-left rounded-md px-2.5 py-2 transition-colors",
+                "disabled:opacity-40 disabled:cursor-not-allowed",
+                section === item.id ? "bg-accent text-accent-foreground" : "hover:bg-accent/60",
               )}
-
-              <div className="flex gap-2">
-                {PROVIDERS.map((provider) => (
-                  <Button
-                    key={provider}
-                    variant={
-                      state.providerType === provider ? "default" : "outline"
-                    }
-                    size="sm"
-                    onClick={() =>
-                      dispatch({
-                        type: "SET_PROVIDER_TYPE",
-                        payload: provider,
-                      })
-                    }
-                    className="capitalize h-8 text-xs gap-1.5"
-                  >
-                    <Globe className="h-3 w-3" />
-                    {provider}
-                  </Button>
-                ))}
+            >
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <ItemIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="truncate">{item.label}</span>
               </div>
+              <div className="text-[11px] text-muted-foreground pl-6 truncate">{item.hint}</div>
+            </button>
+          );
+        })}
+      </nav>
 
-              {state.providerType && (
-                <div className="space-y-3 rounded-lg border p-3">
-                  <div>
-                    <label className="text-xs text-muted-foreground flex items-center gap-1.5 mb-1.5">
-                      <Key className="h-3 w-3" />
-                      Personal Access Token
-                    </label>
+      <ScrollArea className="flex-1">
+        <div className="max-w-2xl mx-auto px-6 py-5 space-y-6">
+          <div className="flex items-center gap-2">
+            <h1 className="text-base font-semibold flex-1">{titles[section]}</h1>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => dispatch({ type: "CLOSE_SETTINGS" })}
+              aria-label="Close settings"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          {section === "app" && <AppSettings />}
+          {section === "workspace" && <WorkspaceSettings key={workspace.id} />}
+          {section === "repository" && tab && <RepositorySettings key={tab.id} />}
+        </div>
+      </ScrollArea>
+    </div>
+  );
+}
 
-                    {state.providerTokenSaved && !tokenDraft ? (
-                      <div className="flex items-center gap-2">
-                        <Badge
-                          variant="secondary"
-                          className="gap-1 text-[10px] h-6"
-                        >
-                          <Lock className="h-3 w-3" /> Saved in your keychain
-                        </Badge>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-6 text-[10px] px-2"
-                          onClick={() => setTokenDraft(" ")}
-                        >
-                          Replace
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 text-[10px] px-2 text-destructive"
-                          onClick={clearToken}
-                        >
-                          Remove
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex gap-2">
-                        <Input
-                          type="password"
-                          placeholder="Paste your token…"
-                          value={tokenDraft.trim()}
-                          onChange={(e) => setTokenDraft(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") void saveToken();
-                          }}
-                          className="h-8 text-xs font-mono"
-                        />
-                        <Button
-                          size="sm"
-                          className="h-8 text-xs shrink-0"
-                          disabled={!tokenDraft.trim()}
-                          onClick={saveToken}
-                        >
-                          Save
-                        </Button>
-                      </div>
-                    )}
 
-                    <p className="text-[10px] text-muted-foreground mt-1.5 leading-relaxed">
-                      Stored in your operating system keychain, never in
-                      Tentacle&rsquo;s settings file. It is read only when a
-                      request needs it, and is never displayed again.
-                    </p>
-                  </div>
+function AppSettings() {
+  const { state, dispatch } = useApp();
+  const [tokens, setTokens] = useState<Partial<Record<ProviderType, boolean>>>({});
+  const [stored, setStored] = useState<string | null>(null);
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-xs text-muted-foreground block mb-1.5">
-                        {state.providerType === "bitbucket"
-                          ? "Workspace"
-                          : "Owner/Org"}
-                      </label>
-                      <Input
-                        placeholder={
-                          state.providerType === "bitbucket"
-                            ? "workspace"
-                            : "owner"
-                        }
-                        value={state.providerOwner}
-                        onChange={(e) =>
-                          dispatch({
-                            type: "SET_PROVIDER_OWNER",
-                            payload: e.target.value,
-                          })
-                        }
-                        className="h-8 text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground block mb-1.5">
-                        Repository
-                      </label>
-                      <Input
-                        placeholder="repo-name"
-                        value={state.providerRepo}
-                        onChange={(e) =>
-                          dispatch({
-                            type: "SET_PROVIDER_REPO",
-                            payload: e.target.value,
-                          })
-                        }
-                        className="h-8 text-xs"
-                      />
-                    </div>
-                  </div>
+  const refreshTokens = useCallback(async () => {
+    const entries = await Promise.all(
+      PROVIDERS.map(
+        async p => [p, await api.secretHas(api.providerTokenKey(p)).catch(() => false)] as const,
+      ),
+    );
+    setTokens(Object.fromEntries(entries));
+  }, []);
 
-                  {state.providerType === "gitlab" && (
-                    <div>
-                      <label className="text-xs text-muted-foreground block mb-1.5">
-                        GitLab Base URL
-                      </label>
-                      <Input
-                        placeholder="https://gitlab.com"
-                        value={state.gitlabBaseUrl}
-                        onChange={(e) =>
-                          dispatch({
-                            type: "SET_GITLAB_BASE_URL",
-                            payload: e.target.value,
-                          })
-                        }
-                        className="h-8 text-xs"
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </TabsContent>
+  useEffect(() => {
+    void refreshTokens();
+  }, [refreshTokens]);
 
-          <TabsContent value="ai" className="space-y-4 mt-4">
-            <div className="space-y-3">
-              <div>
-                <h3 className="text-sm font-medium">Local AI (Ollama)</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Tentacle uses Ollama for local inference. No data leaves your
-                  machine.
-                </p>
-              </div>
+  return (
+    <>
+      <Section title="Appearance" icon={Sun}>
+        <Row label="Theme">
+          {(["light", "dark"] as const).map(t => (
+            <Button
+              key={t}
+              size="sm"
+              variant={state.theme === t ? "secondary" : "ghost"}
+              className="h-7 text-xs gap-1.5 capitalize"
+              onClick={() => dispatch({ type: "SET_THEME", payload: t })}
+            >
+              {t === "light" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+              {t}
+            </Button>
+          ))}
+        </Row>
+      </Section>
 
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Status:</span>
-                {ollamaAvailable === null ? (
-                  <Badge variant="outline" className="text-[10px] h-5">
-                    Checking…
-                  </Badge>
-                ) : ollamaAvailable ? (
-                  <Badge variant="default" className="gap-1 text-[10px] h-5">
-                    <CheckCircle className="h-3 w-3" /> Connected
-                  </Badge>
-                ) : (
-                  <Badge
-                    variant="destructive"
-                    className="gap-1 text-[10px] h-5"
-                  >
-                    <XCircle className="h-3 w-3" /> Not available
-                  </Badge>
-                )}
+      <Section
+        title="Privacy"
+        icon={Shield}
+        description="What leaves this machine, and what Tentacle remembers."
+      >
+        <Row
+          label="Allow provider API requests"
+          description="Off by default. While off, Tentacle makes no request to GitHub, GitLab or Bitbucket and pull requests are unavailable. Git itself still fetches from and pushes to your remotes."
+        >
+          <Switch
+            checked={state.allowNetwork}
+            onCheckedChange={v => dispatch({ type: "SET_ALLOW_NETWORK", payload: v })}
+          />
+        </Row>
+        <Row
+          label="Don't remember repositories"
+          description="Repository paths stay in memory and are never written to disk. Workspaces are remembered by name only, empty."
+        >
+          <Switch
+            checked={state.ephemeral}
+            onCheckedChange={v => dispatch({ type: "SET_EPHEMERAL", payload: v })}
+          />
+        </Row>
+        <div className="px-3 py-2.5 space-y-1.5">
+          <div className="text-xs font-medium">Everything that can leave this machine</div>
+          <ul className="text-[11px] text-muted-foreground space-y-1 leading-relaxed">
+            <li>
+              <span className="text-foreground">Fetch, pull, push, clone</span> — only to the
+              remotes configured in each repository.
+            </li>
+            <li>
+              <span className="text-foreground">Provider APIs</span> —{" "}
+              {state.allowNetwork ? "allowed" : "blocked"}, and only to the forge a repository
+              lives on.
+            </li>
+            <li>
+              <span className="text-foreground">AI</span> — your workspace&rsquo;s endpoint. Local
+              Ollama by default; a remote endpoint is refused unless that workspace allows it.
+            </li>
+            <li>
+              <span className="text-foreground">Nothing else</span> — no telemetry, analytics,
+              crash reports or update checks.
+            </li>
+          </ul>
+        </div>
+      </Section>
+
+      <Section
+        title="Saved tokens"
+        icon={Key}
+        description="Kept in your operating system keychain, never in Tentacle's settings file. One per provider, shared by every repository on it. Add one from a repository's settings."
+      >
+        {PROVIDERS.map(p => (
+          <Row key={p} label={PROVIDER_LABEL[p]}>
+            {tokens[p] ? (
+              <>
+                <Badge variant="secondary" className="gap-1 text-[10px] h-5">
+                  <Lock className="h-3 w-3" /> In keychain
+                </Badge>
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
-                  onClick={checkOllama}
-                  className="h-6 text-[10px] px-2"
+                  className="h-6 text-[11px] text-destructive"
+                  onClick={async () => {
+                    await api.secretDelete(api.providerTokenKey(p)).catch(() => undefined);
+                    void refreshTokens();
+                  }}
                 >
-                  Retry
+                  Remove
                 </Button>
-              </div>
+              </>
+            ) : (
+              <span className="text-[11px] text-muted-foreground">None</span>
+            )}
+          </Row>
+        ))}
+      </Section>
 
-              {ollamaAvailable && ollamaModels.length > 0 && (
-                <div className="rounded-lg border p-3">
-                  <span className="text-xs font-medium">Available models</span>
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {ollamaModels.map((model) => (
-                      <Badge
-                        key={model.name}
-                        variant="secondary"
-                        className="text-[10px] font-mono h-5"
-                      >
-                        {model.name}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
+      <Section
+        title="Stored data"
+        icon={Eye}
+        description="Everything Tentacle writes to disk, exactly as written."
+      >
+        <Row label="Settings file">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs gap-1"
+            onClick={async () => setStored(JSON.stringify(await readStoredState(), null, 2))}
+          >
+            <Eye className="h-3 w-3" /> Show
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs gap-1 text-destructive"
+            onClick={async () => {
+              const ok = await confirmThat({
+                title: "Erase everything Tentacle has stored?",
+                description:
+                  "Deletes the settings file and every saved token from your keychain. " +
+                  "Your repositories are not touched.",
+                confirmLabel: "Erase",
+                destructive: true,
+              });
+              if (!ok) return;
+              await purgeStoredState(PROVIDERS);
+              setStored(null);
+              void refreshTokens();
+            }}
+          >
+            <Trash2 className="h-3 w-3" /> Erase all
+          </Button>
+        </Row>
+        {stored && (
+          <pre className="m-3 text-[10px] font-mono bg-muted rounded p-2 overflow-x-auto max-h-64">
+            {stored}
+          </pre>
+        )}
+      </Section>
 
-              {ollamaAvailable === false && (
-                <div className="rounded-lg border p-3 text-xs text-muted-foreground space-y-1.5">
-                  <p>Ollama is not running. To use the AI features:</p>
-                  <ol className="list-decimal ml-4 space-y-1">
-                    <li>
-                      Install Ollama from{" "}
-                      <span className="font-mono">ollama.com</span>
-                    </li>
-                    <li>
-                      Run{" "}
-                      <code className="bg-muted px-1 rounded">
-                        ollama serve
-                      </code>
-                    </li>
-                    <li>
-                      Pull a model:{" "}
-                      <code className="bg-muted px-1 rounded">
-                        ollama pull llama3.2
-                      </code>
-                    </li>
-                  </ol>
-                </div>
-              )}
-            </div>
-          </TabsContent>
+      <Section title="Keyboard shortcuts" icon={Keyboard}>
+        {SHORTCUTS.map(s => (
+          <Row key={s.id} label={s.label}>
+            <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border bg-muted">
+              {s.keys}
+            </kbd>
+          </Row>
+        ))}
+      </Section>
+    </>
+  );
+}
 
-          <TabsContent value="privacy" className="space-y-4 mt-4">
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-sm font-medium">Privacy</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  What leaves your machine, and what Tentacle keeps.
-                </p>
-              </div>
+type AiStatus = "idle" | "checking" | "up" | "down" | "refused" | "error";
 
-              <div className="rounded-lg border p-3 flex items-start gap-3">
-                <Globe className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium flex-1">
-                      Allow provider API requests
+function WorkspaceSettings() {
+  const { state, dispatch } = useApp();
+  const workspace = useActiveWorkspace();
+  const { rename, remove } = useWorkspaces();
+  const [name, setName] = useState(workspace.name);
+
+  const ai = workspace.ai;
+  const setAi = (patch: Partial<AiSettings>) =>
+    dispatch({ type: "SET_WORKSPACE_AI", payload: { id: workspace.id, ai: patch } });
+  const [endpoint, setEndpoint] = useState(ai.endpoint);
+  const remote = !isLocalEndpoint(endpoint);
+
+  const [status, setStatus] = useState<AiStatus>("idle");
+  const [statusText, setStatusText] = useState("");
+  const [models, setModels] = useState<api.OllamaModel[]>([]);
+
+  const check = useCallback(async (config: AiSettings) => {
+    setStatus("checking");
+    try {
+      const up = await api.aiCheckOllama(config);
+      if (!up) {
+        setStatus("down");
+        setModels([]);
+        return;
+      }
+      setStatus("up");
+      setModels(await api.aiListModels(config).catch(() => []));
+    } catch (e) {
+      const message = errorText(e);
+      setStatus(message.includes("not on this machine") ? "refused" : "error");
+      setStatusText(message);
+      setModels([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (ai.enabled) void check(ai);
+  }, [ai, check]);
+
+  const commitEndpoint = () => {
+    if (endpoint.trim() !== ai.endpoint) setAi({ endpoint: endpoint.trim() });
+  };
+
+  const modelOptions =
+    ai.model && !models.some(m => m.name === ai.model)
+      ? [{ name: ai.model, size: null }, ...models]
+      : models;
+
+  return (
+    <>
+      <Section
+        title="Workspace"
+        icon={Layers}
+        description="A set of repositories you work on together. Switch workspaces from the menu beside the Tentacle logo."
+      >
+        <Row label="Name">
+          <Input
+            value={name}
+            onChange={e => setName(e.target.value)}
+            onBlur={() => rename(workspace.id, name)}
+            onKeyDown={e => {
+              if (e.key === "Enter") rename(workspace.id, name);
+            }}
+            className="h-7 w-56 text-xs"
+          />
+        </Row>
+        <div className="px-3 py-2.5 space-y-1.5">
+          <div className="text-xs font-medium">Repositories ({workspace.repoPaths.length})</div>
+          {workspace.repoPaths.length === 0 ? (
+            <p className="text-[11px] text-muted-foreground">
+              None yet. Open one with the + button in the title bar.
+            </p>
+          ) : (
+            <ul className="space-y-1">
+              {workspace.repoPaths.map(path => {
+                const open = state.tabs.some(t => t.id === path);
+                return (
+                  <li key={path} className="flex items-center gap-2 group">
+                    <FolderOpen className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <span className="text-xs font-medium shrink-0">
+                      {path.split(/[\\/]/).pop()}
                     </span>
-                    <Switch
-                      checked={state.allowNetwork}
-                      onCheckedChange={(checked) =>
-                        dispatch({
-                          type: "SET_ALLOW_NETWORK",
-                          payload: checked,
-                        })
-                      }
-                    />
-                  </div>
-                  <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
-                    Off by default. While off, Tentacle makes no request to
-                    GitHub, GitLab or Bitbucket — pull requests and issues stay
-                    unavailable. Fetching and pushing over git are unaffected;
-                    those go only to the remotes in your repository.
-                  </p>
-                </div>
-              </div>
+                    <span
+                      className="text-[11px] text-muted-foreground font-mono truncate flex-1"
+                      title={path}
+                    >
+                      {path}
+                    </span>
+                    {!open && (
+                      <Badge variant="outline" className="text-[10px] h-4">
+                        not open
+                      </Badge>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                      title="Remove from this workspace"
+                      onClick={() => {
+                        if (open) {
+                          api.closeRepo(path).catch(() => undefined);
+                          dispatch({ type: "CLOSE_TAB", payload: path });
+                        } else {
+                          dispatch({
+                            type: "REMOVE_WORKSPACE_REPO",
+                            payload: { id: workspace.id, path },
+                          });
+                        }
+                      }}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </Section>
 
-              <div className="space-y-2">
-                {[
-                  {
-                    icon: Shield,
-                    text: "No telemetry, analytics or crash reporting. Ever.",
-                  },
-                  {
-                    icon: Lock,
-                    text: "Tokens live in your operating system keychain, not in a settings file.",
-                  },
-                  {
-                    icon: Bot,
-                    text: "AI runs locally through Ollama; your code is never uploaded.",
-                  },
-                  {
-                    icon: HardDrive,
-                    text: "No cloud sync. Settings are a single JSON file on this machine.",
-                  },
-                ].map(({ icon: Icon, text }, i) => (
-                  <div
-                    key={i}
-                    className="flex items-start gap-2.5 rounded-lg border p-3"
-                  >
-                    <Icon className="h-3.5 w-3.5 text-primary mt-px shrink-0" />
-                    <span className="text-xs leading-relaxed">{text}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="rounded-lg border p-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium flex-1">
-                    Stored data
+      <Section
+        title="AI"
+        icon={Bot}
+        description="Commit messages and pull request descriptions written by a model you choose. Each workspace has its own, so client work can use a different model from personal projects."
+      >
+        <Row label="Enable AI assistance">
+          <Switch checked={ai.enabled} onCheckedChange={v => setAi({ enabled: v })} />
+        </Row>
+        {ai.enabled && (
+          <>
+            <Row
+              label="Endpoint"
+              description="An Ollama-compatible server. Leave blank for Ollama on this machine."
+            >
+              <Input
+                value={endpoint}
+                placeholder="http://localhost:11434"
+                onChange={e => setEndpoint(e.target.value)}
+                onBlur={commitEndpoint}
+                onKeyDown={e => {
+                  if (e.key === "Enter") commitEndpoint();
+                }}
+                className="h-7 w-64 text-xs font-mono"
+              />
+            </Row>
+            {remote && (
+              <div className="px-3 py-2.5 bg-amber-500/10 space-y-2">
+                <div className="flex items-start gap-2 text-[11px] leading-relaxed">
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-px" />
+                  <span>
+                    <span className="font-medium">{endpointHost(endpoint)}</span> is not this
+                    machine. Allowing it sends every diff you ask the AI to describe to that
+                    server.
                   </span>
+                </div>
+                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                  <Switch
+                    checked={ai.allowRemote}
+                    onCheckedChange={v => setAi({ allowRemote: v })}
+                  />
+                  Allow this remote endpoint
+                </label>
+              </div>
+            )}
+            <Row label="Status">
+              {status === "checking" && (
+                <Badge variant="outline" className="gap-1 text-[10px] h-5">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Checking
+                </Badge>
+              )}
+              {status === "up" && (
+                <Badge className="gap-1 text-[10px] h-5">
+                  <CheckCircle className="h-3 w-3" /> Connected
+                </Badge>
+              )}
+              {status === "down" && (
+                <Badge variant="destructive" className="gap-1 text-[10px] h-5">
+                  <XCircle className="h-3 w-3" /> Not running
+                </Badge>
+              )}
+              {status === "error" && (
+                <Badge variant="destructive" className="gap-1 text-[10px] h-5">
+                  <XCircle className="h-3 w-3" /> Error
+                </Badge>
+              )}
+              {status === "refused" && (
+                <Badge variant="destructive" className="gap-1 text-[10px] h-5">
+                  <Shield className="h-3 w-3" /> Blocked
+                </Badge>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-[11px]"
+                onClick={() => void check(ai)}
+              >
+                Test
+              </Button>
+            </Row>
+            {(status === "refused" || status === "error") && (
+              <p className="px-3 py-2 text-[11px] text-destructive">{statusText}</p>
+            )}
+            {status === "down" && (
+              <p className="px-3 py-2 text-[11px] text-muted-foreground leading-relaxed">
+                Nothing answered. For local AI, install Ollama from ollama.com, run{" "}
+                <code>ollama serve</code>, then <code>ollama pull llama3.2</code>.
+              </p>
+            )}
+            <Row
+              label="Model"
+              description={
+                models.length === 0 ? "Connect to list the endpoint's models." : undefined
+              }
+            >
+              <select
+                value={ai.model}
+                onChange={e => setAi({ model: e.target.value })}
+                className="h-7 w-56 rounded-md border bg-background px-2 text-xs"
+              >
+                <option value="">Endpoint default</option>
+                {modelOptions.map(m => (
+                  <option key={m.name} value={m.name}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </Row>
+          </>
+        )}
+      </Section>
+
+      <Section title="Delete workspace" icon={Trash2}>
+        <Row
+          label={`Delete “${workspace.name}”`}
+          description={
+            state.workspaces.length <= 1
+              ? "This is your only workspace."
+              : "The repositories stay on disk; only this list of them and its AI settings go."
+          }
+        >
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs text-destructive"
+            disabled={state.workspaces.length <= 1}
+            onClick={async () => {
+              const ok = await confirmThat({
+                title: `Delete workspace ${workspace.name}?`,
+                description:
+                  "The repositories stay on disk. Only the workspace and its settings are removed.",
+                confirmLabel: "Delete",
+                destructive: true,
+              });
+              if (ok) await remove(workspace.id);
+            }}
+          >
+            Delete
+          </Button>
+        </Row>
+      </Section>
+    </>
+  );
+}
+
+
+function RepositorySettings() {
+  const { state, dispatch } = useApp();
+  const tab = useActiveTab()!;
+  const provider = useRepoSettings();
+  const explicit = state.repoSettings[tab.id];
+  const set = (settings: Partial<RepoSettings>) =>
+    dispatch({ type: "SET_REPO_SETTINGS", payload: { path: tab.id, settings } });
+  const fail = (e: unknown) => dispatch({ type: "SET_ERROR", payload: errorText(e) });
+
+  const [tokenSaved, setTokenSaved] = useState(false);
+  const [tokenDraft, setTokenDraft] = useState("");
+  const [replacing, setReplacing] = useState(false);
+
+  useEffect(() => {
+    setReplacing(false);
+    setTokenDraft("");
+    if (!provider.providerType) {
+      setTokenSaved(false);
+      return;
+    }
+    let cancelled = false;
+    api
+      .secretHas(api.providerTokenKey(provider.providerType))
+      .then(v => !cancelled && setTokenSaved(v))
+      .catch(() => !cancelled && setTokenSaved(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [provider.providerType]);
+
+  const saveToken = async () => {
+    if (!provider.providerType || !tokenDraft.trim()) return;
+    try {
+      await api.secretSet(api.providerTokenKey(provider.providerType), tokenDraft.trim());
+      setTokenSaved(true);
+      setTokenDraft("");
+      setReplacing(false);
+    } catch (e) {
+      fail(e);
+    }
+  };
+
+  const removeToken = async () => {
+    if (!provider.providerType) return;
+    try {
+      await api.secretDelete(api.providerTokenKey(provider.providerType));
+      setTokenSaved(false);
+    } catch (e) {
+      fail(e);
+    }
+  };
+
+  const [identity, setIdentity] = useState<api.Identity | null>(null);
+  const [nameDraft, setNameDraft] = useState("");
+  const [emailDraft, setEmailDraft] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getIdentity()
+      .then(id => {
+        if (cancelled) return;
+        setIdentity(id);
+        setNameDraft(id.name.scope === "repository" ? id.name.value ?? "" : "");
+        setEmailDraft(id.email.scope === "repository" ? id.email.value ?? "" : "");
+      })
+      .catch(e => !cancelled && fail(e));
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab.id]);
+
+  const saveIdentity = async () => {
+    try {
+      setIdentity(await api.setIdentity(nameDraft, emailDraft));
+    } catch (e) {
+      fail(e);
+    }
+  };
+
+  const clearIdentity = async () => {
+    try {
+      setIdentity(await api.setIdentity("", ""));
+      setNameDraft("");
+      setEmailDraft("");
+    } catch (e) {
+      fail(e);
+    }
+  };
+
+  const scopeBadge = (scope: string) => (
+    <Badge variant={scope === "repository" ? "secondary" : "outline"} className="text-[10px] h-4">
+      {scope === "repository" ? "this repository" : scope === "global" ? "global config" : "not set"}
+    </Badge>
+  );
+
+  const hasOverride =
+    identity?.name.scope === "repository" || identity?.email.scope === "repository";
+  const ownerLabel =
+    provider.providerType === "bitbucket"
+      ? "Workspace / repository"
+      : provider.providerType === "gitlab"
+        ? "Group / project"
+        : "Owner / repository";
+
+  return (
+    <>
+      <div className="rounded-lg border px-3 py-2.5 flex items-center gap-2.5">
+        <GitBranch className="h-4 w-4 text-muted-foreground shrink-0" />
+        <div className="min-w-0">
+          <div className="text-sm font-medium">{tab.repo.name}</div>
+          <div className="text-[11px] text-muted-foreground font-mono truncate">{tab.repo.path}</div>
+        </div>
+      </div>
+
+      <Section
+        title="Hosting provider"
+        icon={Globe}
+        description="Where this repository's pull requests live. Read from the origin remote when it can be."
+      >
+        <Row
+          label="Provider"
+          description={
+            provider.detected
+              ? "Detected from the origin remote."
+              : explicit?.providerType
+                ? "Set for this repository."
+                : "Not detected — choose one to use pull requests."
+          }
+        >
+          {PROVIDERS.map(p => (
+            <Button
+              key={p}
+              size="sm"
+              variant={provider.providerType === p ? "secondary" : "ghost"}
+              className="h-7 text-xs"
+              onClick={() => set({ providerType: p })}
+            >
+              {PROVIDER_LABEL[p]}
+            </Button>
+          ))}
+        </Row>
+
+        {provider.providerType && (
+          <>
+            <Row label={ownerLabel}>
+              <Input
+                value={explicit?.providerOwner ?? ""}
+                placeholder={provider.providerOwner || "owner"}
+                onChange={e => set({ providerOwner: e.target.value })}
+                className="h-7 w-36 text-xs"
+              />
+              <span className="text-muted-foreground">/</span>
+              <Input
+                value={explicit?.providerRepo ?? ""}
+                placeholder={provider.providerRepo || "repository"}
+                onChange={e => set({ providerRepo: e.target.value })}
+                className="h-7 w-36 text-xs"
+              />
+            </Row>
+            {provider.providerType === "gitlab" && (
+              <Row label="GitLab URL">
+                <Input
+                  value={explicit?.gitlabBaseUrl ?? ""}
+                  placeholder={provider.gitlabBaseUrl}
+                  onChange={e => set({ gitlabBaseUrl: e.target.value })}
+                  className="h-7 w-64 text-xs font-mono"
+                />
+              </Row>
+            )}
+            <Row
+              label={`${PROVIDER_LABEL[provider.providerType]} token`}
+              description={`Kept in your OS keychain and shared by every ${PROVIDER_LABEL[provider.providerType]} repository. Never shown again once saved.`}
+            >
+              {tokenSaved && !replacing ? (
+                <>
+                  <Badge variant="secondary" className="gap-1 text-[10px] h-5">
+                    <Lock className="h-3 w-3" /> Saved
+                  </Badge>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-6 text-[10px] px-2 gap-1"
-                    onClick={async () => {
-                      const data = await readStoredState();
-                      setStoredState(JSON.stringify(data, null, 2));
-                    }}
+                    className="h-6 text-[11px]"
+                    onClick={() => setReplacing(true)}
                   >
-                    <Eye className="h-3 w-3" /> Show
+                    Replace
                   </Button>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-6 text-[10px] px-2 gap-1 text-destructive"
-                    onClick={async () => {
-                      const ok = await confirmThat({
-                        title: "Erase everything Tentacle has stored?",
-                        description:
-                          "Deletes the settings file and every saved token from your keychain. " +
-                          "Your repositories are not touched.",
-                        confirmLabel: "Erase",
-                        destructive: true,
-                      });
-                      if (!ok) return;
-                      await purgeStoredState([...PROVIDERS]);
-                      dispatch({
-                        type: "SET_PROVIDER_TOKEN_SAVED",
-                        payload: false,
-                      });
-                      setStoredState(null);
-                    }}
+                    className="h-6 text-[11px] text-destructive"
+                    onClick={removeToken}
                   >
-                    <Trash2 className="h-3 w-3" /> Erase all
+                    Remove
                   </Button>
-                </div>
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Everything Tentacle writes to disk, exactly as it is written.
-                </p>
-                {storedState && (
-                  <pre className="text-[10px] font-mono bg-muted rounded p-2 overflow-x-auto max-h-56">
-                    {storedState}
-                  </pre>
-                )}
-              </div>
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
-    </ScrollArea>
+                </>
+              ) : (
+                <>
+                  <Input
+                    type="password"
+                    value={tokenDraft}
+                    placeholder="Paste a token…"
+                    onChange={e => setTokenDraft(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") void saveToken();
+                    }}
+                    className="h-7 w-48 text-xs font-mono"
+                  />
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs"
+                    disabled={!tokenDraft.trim()}
+                    onClick={saveToken}
+                  >
+                    Save
+                  </Button>
+                </>
+              )}
+            </Row>
+            {!state.allowNetwork && (
+              <p className="px-3 py-2 text-[11px] text-amber-600 dark:text-amber-400 bg-amber-500/10">
+                Provider requests are off in Application settings → Privacy, so nothing is sent
+                until you allow them.
+              </p>
+            )}
+          </>
+        )}
+
+        {explicit && (
+          <Row
+            label="Overrides"
+            description="Forget what you set here and go back to what the origin remote says."
+          >
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => dispatch({ type: "CLEAR_REPO_SETTINGS", payload: tab.id })}
+            >
+              Reset
+            </Button>
+          </Row>
+        )}
+      </Section>
+
+      <Section
+        title="Commit identity"
+        icon={User}
+        description="The name and email written into every commit here. In a public repository they are published permanently — if your global address is personal, set a work or no-reply one for this repository."
+      >
+        {identity && (
+          <>
+            <Row label="Name">
+              <span className="text-xs">{identity.name.value ?? "—"}</span>
+              {scopeBadge(identity.name.scope)}
+            </Row>
+            <Row label="Email">
+              <span className="text-xs font-mono">{identity.email.value ?? "—"}</span>
+              {scopeBadge(identity.email.scope)}
+            </Row>
+          </>
+        )}
+        <div className="px-3 py-2.5 space-y-2">
+          <div className="text-xs font-medium">Override for this repository</div>
+          <div className="flex gap-2">
+            <Input
+              value={nameDraft}
+              placeholder={identity?.name.value ?? "Name"}
+              onChange={e => setNameDraft(e.target.value)}
+              className="h-7 text-xs"
+            />
+            <Input
+              value={emailDraft}
+              placeholder={identity?.email.value ?? "email@example.com"}
+              onChange={e => setEmailDraft(e.target.value)}
+              className="h-7 text-xs font-mono"
+            />
+          </div>
+          {provider.providerType === "github" && (
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              GitHub gives every account a private address of the form{" "}
+              <span className="font-mono">ID+username@users.noreply.github.com</span> — it is
+              listed in your GitHub email settings.
+            </p>
+          )}
+          <div className="flex gap-2 justify-end">
+            {hasOverride && (
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={clearIdentity}>
+                Use global identity
+              </Button>
+            )}
+            <Button size="sm" className="h-7 text-xs" onClick={saveIdentity}>
+              Save for this repository
+            </Button>
+          </div>
+        </div>
+      </Section>
+    </>
   );
 }

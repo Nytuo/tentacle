@@ -10,9 +10,7 @@ use git::GitState;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .manage(GitState::new())
         .manage(WatcherState::new())
@@ -41,9 +39,13 @@ pub fn run() {
             git::branches::merge_branch,
             git::branches::check_merge_status,
             git::branches::get_default_branch,
+            git::identity::get_identity,
+            git::identity::set_identity,
             git::diff::get_working_diff,
             git::diff::get_staged_diff,
             git::diff::get_commit_diff,
+            git::diff::get_commit_files,
+            git::diff::get_commit_file_diff,
             git::diff::get_range_diff,
             git::diff::get_conflict_files,
             git::diff::get_conflict_diff,

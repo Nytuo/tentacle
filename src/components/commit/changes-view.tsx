@@ -1,3 +1,5 @@
+import { errorText } from "@/hooks/use-git";
+import { useActiveWorkspace } from "@/stores/app-store";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useGit } from "@/hooks/use-git";
 import { Button } from "@/components/ui/button";
@@ -120,6 +122,7 @@ export function ChangesView() {
     ignorePath,
     setError,
   } = useGit();
+  const workspace = useActiveWorkspace();
   const [commitMessage, setCommitMessage] = useState("");
   const [isAmend, setIsAmend] = useState(false);
   const [signOff, setSignOff] = useState(false);
@@ -173,9 +176,10 @@ export function ChangesView() {
             .join(""),
         )
         .join("\n");
-      const msg = await api.aiGenerateCommitMessage(diffText);
+      const msg = await api.aiGenerateCommitMessage(workspace.ai, diffText);
       setCommitMessage(msg);
-    } catch {
+    } catch (e) {
+      setError(errorText(e));
     } finally {
       setGenerating(false);
     }
@@ -348,18 +352,20 @@ export function ChangesView() {
                 >
                   Amend
                 </Button>
-                <Button
+                {workspace.ai.enabled && (
+              <Button
                   variant="outline"
                   size="icon"
                   className="h-7 w-7 shrink-0"
                   onClick={handleGenerateMessage}
                   disabled={generating || staged.length === 0}
-                  title="Generate a commit message locally with Ollama"
+                  title="Write a commit message with this workspace's AI"
                 >
                   <Sparkles
                     className={cn("h-3.5 w-3.5", generating && "animate-spin")}
                   />
                 </Button>
+            )}
               </div>
               <label className="flex items-center gap-2 text-[11px] text-muted-foreground cursor-pointer">
                 <Switch

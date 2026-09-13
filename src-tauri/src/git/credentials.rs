@@ -36,6 +36,36 @@ pub fn host_of(url: &str) -> Option<String> {
     }
 }
 
+pub fn redact_credentials(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(pos) = rest.find("://") {
+        let (before, after) = rest.split_at(pos + 3);
+        out.push_str(before);
+        let end = after
+            .find(|c: char| c == '/' || c.is_whitespace() || c == '"' || c == '\'')
+            .unwrap_or(after.len());
+        let authority = &after[..end];
+        match authority.rfind('@') {
+            Some(at) => {
+                let userinfo = &authority[..at];
+                let masked = match userinfo.split_once(':') {
+                    Some((user, _)) if user.len() <= 16 => format!("{user}:***"),
+                    Some(_) => "***".to_string(),
+                    None if userinfo.len() > 16 => "***".to_string(),
+                    None => userinfo.to_string(),
+                };
+                out.push_str(&masked);
+                out.push_str(&authority[at..]);
+            }
+            None => out.push_str(authority),
+        }
+        rest = &after[end..];
+    }
+    out.push_str(rest);
+    out
+}
+
 fn ssh_key_candidates() -> Vec<PathBuf> {
     let Some(home) = dirs::home_dir() else {
         return Vec::new();
@@ -174,6 +204,23 @@ where
 #[cfg(test)]
 mod tests {
     use super::host_of;
+
+    #[test]
+    fn redacts_passwords_and_token_usernames_but_not_plain_ones() {
+        use super::redact_credentials as r;
+        assert_eq!(r("https://ada:s3cret@github.com/a/b"), "https://ada:***@github.com/a/b");
+        assert_eq!(
+            r("failed: https://ghp_0123456789abcdefghij0123@github.com/x"),
+            "failed: https://***@github.com/x"
+        );
+        assert_eq!(r("ssh://git@host.com/x"), "ssh://git@host.com/x");
+        assert_eq!(r("git@github.com:a/b.git"), "git@github.com:a/b.git");
+        assert_eq!(r("no url here"), "no url here");
+        assert_eq!(
+            r("a https://u:p@one.com and https://u:q@two.com"),
+            "a https://u:***@one.com and https://u:***@two.com"
+        );
+    }
 
     #[test]
     fn extracts_host_from_every_url_shape() {

@@ -2,6 +2,8 @@ import { useCallback } from "react";
 import { useActiveTab, useApp } from "@/stores/app-store";
 import * as api from "@/lib/api";
 
+let selectTicket = 0;
+
 export function useGit() {
   const { state, dispatch } = useApp();
   const tab = useActiveTab();
@@ -434,10 +436,15 @@ export function useGit() {
         dispatch({ type: "SET_COMMIT_DIFF", payload: [] });
         return;
       }
+      // Clicking through commits quickly leaves slower, older responses in
+      // flight. Only the latest click may write, or an earlier commit's files
+      // can land after — and overwrite — the one on screen.
+      const ticket = ++selectTicket;
       const [details, diff] = await Promise.allSettled([
         api.getCommitDetails(oid),
-        api.getCommitDiff(oid),
+        api.getCommitFiles(oid),
       ]);
+      if (ticket !== selectTicket) return;
       if (details.status === "fulfilled") {
         dispatch({ type: "SET_SELECTED_COMMIT_INFO", payload: details.value });
       } else {

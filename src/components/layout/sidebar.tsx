@@ -181,7 +181,9 @@ export function Sidebar() {
             <button
               key={item.id}
               onClick={() =>
-                dispatch({ type: "SET_ACTIVE_VIEW", payload: item.id })
+                item.id === "settings"
+                  ? dispatch({ type: "OPEN_SETTINGS", payload: "repository" })
+                  : dispatch({ type: "SET_ACTIVE_VIEW", payload: item.id })
               }
               className={cn(
                 "w-full flex items-center gap-2.5 px-2.5 h-8 rounded-md text-sm font-medium",

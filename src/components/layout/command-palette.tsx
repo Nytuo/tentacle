@@ -80,7 +80,13 @@ export function CommandPalette() {
         Layers,
       ),
       view("view.ignore", "Edit .gitignore", "ignore", FileText),
-      view("view.settings", "Open settings", "settings", Settings),
+      {
+        id: "view.settings",
+        label: "Open settings",
+        group: "Navigate",
+        icon: Settings,
+        run: () => dispatch({ type: "OPEN_SETTINGS", payload: "app" }),
+      },
       {
         id: "fetch",
         label: "Fetch",
