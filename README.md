@@ -61,7 +61,8 @@ in the depths where Cthulhu dwells.
   and repository are read from `origin` automatically
 
 - **Privacy-first:**
-  - No telemetry, no tracking, no ads, no cloud sync, no update checks
+  - No telemetry, no tracking, no ads, no cloud sync
+  - Signed auto-updates from GitHub releases, which can be turned off in settings
   - Tokens live in your OS keychain, never in a settings file. A token left in
     plain text by an early version is moved to the keychain and scrubbed from
     disk on first launch

@@ -35,7 +35,15 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "createUpdaterArtifacts": true
   },
-  "plugins": {}
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDIxMEFCNzNCM0RFRTZCMTgKUldRWWErNDlPN2NLSVVaTmwyckNnSjlJcksrN0FTWGJmS2dSRUQ4U00rd1ZWdjMrUCswem1CSFkK",
+      "endpoints": [
+        "https://github.com/Nytuo/tentacle/releases/latest/download/latest.json"
+      ]
+    }
+  }
 }

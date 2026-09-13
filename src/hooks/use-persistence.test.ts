@@ -47,6 +47,17 @@ describe("migratePersisted", () => {
   });
 });
 
+describe("autoCheckUpdates migration", () => {
+  it("defaults on for files written before the setting existed", () => {
+    expect(migratePersisted({ version: 2, workspaces: [] })!.autoCheckUpdates).toBe(true);
+    expect(migratePersisted({ tabPaths: [] })!.autoCheckUpdates).toBe(true);
+  });
+
+  it("keeps an explicit opt-out", () => {
+    expect(migratePersisted({ version: 2, autoCheckUpdates: false })!.autoCheckUpdates).toBe(false);
+  });
+});
+
 describe("toPersisted", () => {
   function stateWith(ephemeral: boolean): AppState {
     const ws = { ...newWorkspace("Client", "w"), repoPaths: ["/secret/client-project"], activeRepo: "/secret/client-project" };

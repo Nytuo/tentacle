@@ -3,6 +3,7 @@ import { useGit } from "@/hooks/use-git";
 import { SHORTCUTS } from "@/hooks/use-shortcuts";
 import type { ViewType } from "@/stores/app-store";
 import { cn } from "@/lib/utils";
+import * as api from "@/lib/api";
 import {
   Archive,
   Download,
@@ -161,6 +162,13 @@ export function CommandPalette() {
         group: "Git",
         icon: Archive,
         run: () => void git.popStash(),
+      },
+      {
+        id: "checkUpdates",
+        label: "Check for updates",
+        group: "General",
+        icon: Download,
+        run: () => api.requestUpdateCheck(),
       },
       {
         id: "refresh",

@@ -773,3 +773,26 @@ export interface Identity {
 export const getIdentity = () => invoke<Identity>("get_identity");
 export const setIdentity = (name: string | null, email: string | null) =>
   invoke<Identity>("set_identity", { name, email });
+
+
+export interface UpdateInfo {
+  version: string;
+  current_version: string;
+  body: string | null;
+  date: string | null;
+}
+
+export interface UpdateProgress {
+  stage: "downloading" | "installing" | "done";
+  downloaded: number;
+  total: number;
+  percentage: number;
+}
+
+export const checkForUpdate = () => invokeGlobal<UpdateInfo | null>("check_for_update");
+export const installUpdate = () => invokeGlobal<void>("install_update");
+export const openReleasesPage = () => invokeGlobal<void>("open_releases_page");
+export const restartApp = () => invokeGlobal<void>("restart_app");
+
+export const CHECK_FOR_UPDATES_EVENT = "tentacle:check-for-updates";
+export const requestUpdateCheck = () => window.dispatchEvent(new Event(CHECK_FOR_UPDATES_EVENT));

@@ -16,9 +16,10 @@ import { Switch } from "@/components/ui/switch";
 import { confirmThat } from "@/components/ui/prompt-dialog";
 import { cn } from "@/lib/utils";
 import * as api from "@/lib/api";
+import { requestUpdateCheck } from "@/lib/api";
 import {
   Settings2, Layers, GitBranch, X, Globe, Bot, Shield, Lock, Key, Trash2, Eye,
-  Keyboard, Sun, Moon, User, AlertTriangle, CheckCircle, XCircle, Loader2, FolderOpen,
+  Keyboard, Sun, Moon, User, Download, AlertTriangle, CheckCircle, XCircle, Loader2, FolderOpen,
 } from "lucide-react";
 
 const PROVIDERS: ProviderType[] = ["github", "gitlab", "bitbucket"];
@@ -234,11 +235,37 @@ function AppSettings() {
               Ollama by default; a remote endpoint is refused unless that workspace allows it.
             </li>
             <li>
-              <span className="text-foreground">Nothing else</span> — no telemetry, analytics,
-              crash reports or update checks.
+              <span className="text-foreground">Update checks</span> —{" "}
+              {state.autoCheckUpdates ? "on launch, and" : "only"} when you ask, to GitHub
+              releases. Nothing about you or your repositories is sent.
+            </li>
+            <li>
+              <span className="text-foreground">Nothing else</span> — no telemetry, analytics or
+              crash reports.
             </li>
           </ul>
         </div>
+      </Section>
+
+      <Section
+        title="Updates"
+        icon={Download}
+        description="New versions come from GitHub releases and are verified against Tentacle's signing key before they install."
+      >
+        <Row
+          label="Check for updates automatically"
+          description="A few seconds after launch. Off means Tentacle only checks when you ask."
+        >
+          <Switch
+            checked={state.autoCheckUpdates}
+            onCheckedChange={v => dispatch({ type: "SET_AUTO_CHECK_UPDATES", payload: v })}
+          />
+        </Row>
+        <Row label="Check now">
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={requestUpdateCheck}>
+            Check for updates
+          </Button>
+        </Row>
       </Section>
 
       <Section

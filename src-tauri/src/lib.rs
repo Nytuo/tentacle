@@ -2,6 +2,7 @@ pub mod ai;
 pub mod git;
 pub mod remote;
 pub mod secrets;
+pub mod updater;
 
 use git::watcher::WatcherState;
 use git::GitState;
@@ -12,9 +13,14 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(GitState::new())
         .manage(WatcherState::new())
         .invoke_handler(tauri::generate_handler![
+            updater::check_for_update,
+            updater::install_update,
+            updater::open_releases_page,
+            updater::restart_app,
             git::repo::open_repo,
             git::repo::init_repo,
             git::repo::clone_repo,

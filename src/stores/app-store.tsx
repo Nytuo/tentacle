@@ -96,6 +96,7 @@ export interface AppState {
   repoSettings: Record<string, RepoSettings>;
   allowNetwork: boolean;
   ephemeral: boolean;
+  autoCheckUpdates: boolean;
   transfer: TransferProgress | null;
   paletteOpen: boolean;
   settingsOpen: boolean;
@@ -125,6 +126,7 @@ export function initialAppState(): AppState {
     repoSettings: {},
     allowNetwork: false,
     ephemeral: false,
+    autoCheckUpdates: true,
     transfer: null,
     paletteOpen: false,
     settingsOpen: false,
@@ -224,6 +226,7 @@ export type Action =
   | { type: "SET_THEME_SILENT"; payload: "light" | "dark" }
   | { type: "SET_ALLOW_NETWORK"; payload: boolean }
   | { type: "SET_EPHEMERAL"; payload: boolean }
+  | { type: "SET_AUTO_CHECK_UPDATES"; payload: boolean }
   | { type: "SET_TRANSFER"; payload: TransferProgress | null }
   | { type: "SET_PALETTE_OPEN"; payload: boolean }
   | { type: "OPEN_SETTINGS"; payload?: SettingsSection }
@@ -241,7 +244,13 @@ export type Action =
       type: "RESTORE_SETTINGS";
       payload: Pick<
         AppState,
-        "theme" | "allowNetwork" | "ephemeral" | "workspaces" | "activeWorkspaceId" | "repoSettings"
+        | "theme"
+        | "allowNetwork"
+        | "ephemeral"
+        | "autoCheckUpdates"
+        | "workspaces"
+        | "activeWorkspaceId"
+        | "repoSettings"
       >;
     }
   | { type: "SET_RESTORED" };
@@ -360,6 +369,8 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, allowNetwork: action.payload };
     case "SET_EPHEMERAL":
       return { ...state, ephemeral: action.payload };
+    case "SET_AUTO_CHECK_UPDATES":
+      return { ...state, autoCheckUpdates: action.payload };
     case "SET_TRANSFER":
       return { ...state, transfer: action.payload };
     case "SET_PALETTE_OPEN":

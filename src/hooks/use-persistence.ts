@@ -13,6 +13,7 @@ export interface PersistedState {
   theme: "light" | "dark";
   allowNetwork: boolean;
   ephemeral: boolean;
+  autoCheckUpdates: boolean;
   workspaces: Workspace[];
   activeWorkspaceId: string;
   repoSettings: Record<string, RepoSettings>;
@@ -74,6 +75,7 @@ export function migratePersisted(raw: unknown): PersistedState | null {
       theme: r.theme === "light" ? "light" : "dark",
       allowNetwork: r.allowNetwork === true,
       ephemeral: r.ephemeral === true,
+      autoCheckUpdates: r.autoCheckUpdates !== false,
       workspaces,
       activeWorkspaceId,
       repoSettings,
@@ -101,6 +103,7 @@ export function migratePersisted(raw: unknown): PersistedState | null {
     theme: v1.theme === "light" ? "light" : "dark",
     allowNetwork: v1.allowNetwork === true,
     ephemeral: false,
+    autoCheckUpdates: true,
     workspaces: [workspace],
     activeWorkspaceId: workspace.id,
     repoSettings,
@@ -125,6 +128,7 @@ export function toPersisted(state: AppState): PersistedState {
     theme: state.theme,
     allowNetwork: state.allowNetwork,
     ephemeral: state.ephemeral,
+    autoCheckUpdates: state.autoCheckUpdates,
     workspaces: state.workspaces.map(w =>
       strip ? { ...w, repoPaths: [], activeRepo: null } : w,
     ),
@@ -199,6 +203,7 @@ export function usePersistence() {
             theme: data.theme,
             allowNetwork: data.allowNetwork,
             ephemeral: data.ephemeral,
+            autoCheckUpdates: data.autoCheckUpdates,
             workspaces: data.workspaces,
             activeWorkspaceId: data.activeWorkspaceId,
             repoSettings: data.repoSettings,
@@ -236,6 +241,7 @@ export function usePersistence() {
     state.theme,
     state.allowNetwork,
     state.ephemeral,
+    state.autoCheckUpdates,
     state.workspaces,
     state.activeWorkspaceId,
     state.repoSettings,
