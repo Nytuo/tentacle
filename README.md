@@ -1,0 +1,139 @@
+<h1 align="center">
+	<img src="public/logo.png" alt="Tentacle Logo" width="200">
+</h1>
+<div align="center">
+<h2>Tentacle</h2>
+A privacy-first, modern Git client inspired by GitKraken.
+	<br />
+	<br />
+	<a href="https://github.com/Nytuo/tentacle/issues/new?assignees=&labels=bug&template=01_BUG_REPORT.md&title=bug%3A+">Report a Bug</a>
+	·
+	<a href="https://github.com/Nytuo/tentacle/issues/new?assignees=&labels=enhancement&template=02_FEATURE_REQUEST.md&title=feat%3A+">Request a Feature</a>
+		· <a href="https://github.com/Nytuo/tentacle/discussions">Ask a Question</a>
+
+</div>
+
+<div align="center">
+<br />
+
+[![Project license](https://img.shields.io/badge/license-PolyForm_Noncommercial_1.0.0-blue.svg?style=flat-square)](LICENSE)
+
+[![code with love by Nytuo](https://img.shields.io/badge/%3C%2F%3E%20with%20%E2%99%A5%20by-Nytuo-ff1414.svg?style=flat-square)](https://github.com/Nytuo)
+
+</div>
+
+## About
+
+Tentacle is a privacy-first Git client, aiming to provide a modern, beautiful,
+and powerful interface for managing your repositories. Inspired by GitKraken,
+Tentacle is built with Tauri, React, and Rust, and puts your data privacy first,
+no analytics, no tracking, no cloud sync. All your work stays on your machine,
+in the depths where Cthulhu dwells.
+
+## What Tentacle Can Do
+
+- **Visualize your repositories:**
+  - Interactive commit graph across every branch, with search by message,
+    author, hash or path
+  - Branch management, tags, stashes, remotes and the reflog
+
+- **Stage at any granularity** — whole files, single hunks, or individual lines
+
+- **Rewrite history** — amend, cherry-pick, revert, reset, and interactive
+  rebase with squash, fixup, reword, reorder and drop
+
+- **Understand a file** — per-file history that follows renames, and
+  line-by-line blame
+
+- **Commit, merge, and resolve conflicts**, region by region
+
+- **Worktrees, submodules and Git LFS** detection
+
+- **Workspaces** — named sets of repositories you switch between from the title
+  bar, each with its own AI settings
+
+- **Settings in three scopes** — application (theme, privacy, tokens), workspace
+  (repositories, AI) and repository (forge, commit identity). The forge, owner
+  and repository are read from `origin` automatically
+
+- **Privacy-first:**
+  - No telemetry, no tracking, no ads, no cloud sync
+  - Signed auto-updates from GitHub releases, which can be turned off in settings
+  - Tokens live in your OS keychain, never in a settings file. A token left in
+    plain text by an early version is moved to the keychain and scrubbed from
+    disk on first launch
+  - Outbound provider requests are off until you turn them on
+  - AI is local by default. A remote AI endpoint is refused unless that
+    workspace explicitly allows it, and local AI calls bypass any proxy
+  - The UI runs under a strict Content Security Policy: it can talk only to the
+    Rust side, so nothing rendered in the app can reach the network on its own
+  - Only the Tauri permissions the UI uses are granted; links open in your
+    browser, over https only
+  - Credentials embedded in remote URLs are masked in every error and on screen
+  - Per-repository commit identity, so a personal email doesn't end up in a
+    public repository
+  - An optional mode that never writes repository paths to disk
+  - Settings are one JSON file you can inspect or erase from inside the app
+
+- **Keyboard shortcuts** and a ⌘K command palette
+
+- **Cross-platform:**
+  - macOS, Windows, Linux
+
+## Development
+
+```bash
+npm install
+npm run tauri dev
+```
+
+Checks, all of which run in CI:
+
+```bash
+npm run typecheck && npm test && npm run build
+cd src-tauri && cargo test && cargo clippy --all-targets -- -D warnings
+```
+
+## Authentication
+
+Fetch, push and clone resolve credentials in order: your SSH agent, then SSH
+keys in `~/.ssh`, then a token saved for that host in your OS keychain, then
+your configured `credential.helper`.
+
+## Technologies
+
+<div style="display: flex; align-items: center; gap: 10px;">
+		<img src="https://img.shields.io/badge/Rust-black?style=for-the-badge&logo=rust"/>
+	<img src="https://img.shields.io/badge/NPM-black?style=for-the-badge&logo=npm"/>
+<img src="https://img.shields.io/badge/NodeJS-black?style=for-the-badge&logo=node.js"/>
+<img src="https://img.shields.io/badge/React-black?style=for-the-badge&logo=React"/>
+<img src="https://img.shields.io/badge/vite-black?style=for-the-badge&logo=vite"/>
+	<img src="https://img.shields.io/badge/typeScript-black?style=for-the-badge&logo=typescript"/>
+<img src="https://img.shields.io/badge/TAURI-black?style=for-the-badge&logo=tauri"/>
+</div>
+
+## MacOS Troubleshooting
+
+### Launching on MacOS
+
+If you have trouble launching Tentacle on macOS, ensure you have the latest
+version of [Tauri](https://tauri.app/) and
+[Rust](https://www.rust-lang.org/tools/install) installed. You may need to allow
+the app in your Security & Privacy settings.
+
+## Authors & contributors
+
+The original author of this repository is
+[Arnaud BEUX](https://github.com/Nytuo).
+
+For a full list of all authors and contributors, see
+[the contributors page](https://github.com/Nytuo/tentacle/contributors).
+
+## License
+
+Tentacle is licensed under the **PolyForm Noncommercial License 1.0.0**.
+
+* **Noncommercial & Personal Use**: Free forever for personal study, hobbies, open-source projects, and non-profit organization work.
+* **Commercial & Business Use**: Using Tentacle for commercial or professional work requires a paid Commercial License.
+
+See [LICENSE](LICENSE) for the full license terms. For commercial licensing, contact the author or visit the project storefront.
